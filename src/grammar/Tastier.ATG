@@ -28,6 +28,44 @@ COMPILER Tastier
 
   //using Symbol = System.Tuple<string, int, int, int, int>;
 
+/* Symbol Table Priniting */
+
+Stack<Symbol> symbolTableSummary = new Stack<Symbol>();
+
+Symbol createSymbol(string name, int kind, int type, int stackFrame, int stackIndex) {
+  Symbol s = new Symbol(name, kind, type, stackFrame, stackIndex);
+  
+  symbolTableSummary.Push(s);
+  
+  return s;
+}
+
+void printSymbols(Stack<Symbol> symbolTable) {
+  Console.WriteLine("\nSymbol Table");
+  Console.WriteLine("------------");
+
+  foreach (Symbol s in symbolTableSummary) {
+    if (s.Item2 == (int)TastierKind.Var) {
+      if (s.Item3 == (int)TastierType.Integer) {
+        Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Variable, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
+      }
+      else if (s.Item3 == (int)TastierType.Boolean) {
+        Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Boolean, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
+      }
+      else {
+       Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Undefined, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
+      }
+    } 
+    else {
+      Console.WriteLine(string.Format("Label: {0}, Kind: Procedure, Stack Frame: {1}", s.Item1, s.Item4));
+    }
+  }
+
+  Console.WriteLine("");
+
+  symbolTable.Clear();
+}
+
 /*
   A Symbol is a name with a type and a kind. The first int in the
   tuple is the kind, and the second int is the type. We'll use these to
@@ -159,28 +197,16 @@ string generateProcedureName(string name) {
 */
 
 string getLabelForProcedureName(int lexicalLevelDifference, string name) {
-  /*
-     We want to skip <lexicalLevelDifference> labels backwards, but compose
-     a label that incorporates the names of all the enclosing procedures up
-     to that point. A lexical level difference of zero indicates a procedure
-     defined in the current scope; a difference of 1 indicates a procedure
-     defined in the enclosing scope, and so on.
-  */
-  int numOpenProcedures = openProcedureDeclarations.Count;
-  int numNamesToUse = (numOpenProcedures - lexicalLevelDifference);
+  int temp = lexicalLevelDifference; //we want to skip <lexicalLevelDifference> labels
   string theLabel = name;
 
-  /*
-    We need to concatenate the first <numNamesToUse> labels with a "$" to
-    get the name of the label we need to call.
-  */
-
-  var names = openProcedureDeclarations.Take(numNamesToUse);
-
-  foreach (string s in names) {
+  foreach (string s in openProcedureDeclarations) {
+    if (temp == 0) {
       theLabel = s + "$" + theLabel;
+    } else {
+      temp = temp - 1;
+    }
   }
-
   return theLabel;
 }
 
@@ -354,18 +380,17 @@ MulOp<out Instruction inst>
 
 /*------------------------------------------------------------------------*/
 
-ProcDecl                        (.  string name; string label; Scope currentScope = openScopes.Peek(); int enterInstLocation = 0; bool external = false; .)
+ProcDecl                        (.  string name; Scope currentScope = openScopes.Peek(); int enterInstLocation = 0; bool external = false; .)
 = "void"
   Ident<out name>               (.
-                                    currentScope.Push(new Symbol(name, (int)TastierKind.Proc, (int)TastierType.Undefined, openScopes.Count, -1));
+                                    currentScope.Push(createSymbol(name, (int)TastierKind.Proc, (int)TastierType.Undefined, openScopes.Count, -1));
                                     openScopes.Push(new Scope());
                                     currentScope = openScopes.Peek();
                                 .)
   '(' ')'
   '{'                           (.
-                                    program.Add(new Instruction("", "Enter 0"));
-                                    enterInstLocation = program.Count - 1;
-                                    label = generateProcedureName(name);
+                                    enterInstLocation = program.Count;
+                                    program.Add(new Instruction(generateProcedureName(name), "Enter 0"));
                                     openProcedureDeclarations.Push(name);
                                     /*
                                       Enter is supposed to have as an
@@ -399,9 +424,7 @@ ProcDecl                        (.  string name; string label; Scope currentScop
                                     program.Add(new Instruction("", "Ret"));
                                     openScopes.Pop();
                                     // now we can generate the Enter instruction properly
-                                    program[enterInstLocation] =
-                                      new Instruction(label, "Enter " +
-                                                      currentScope.Count(s => s.Item2 == (int)TastierKind.Var));
+                                    program.Insert(enterInstLocation, new Instruction("", "Enter " + currentScope.Count));
                                     openProcedureDeclarations.Pop();
                                 .).
 
@@ -592,6 +615,8 @@ Tastier                         (.  string name; bool external = false; .)
                                     }
                                     header.AddRange(program);
                                     openScopes.Pop();
+
+                                    printSymbols(symbolTableSummary);
                                 .).
 
 /*------------------------------------------------------------------------*/
@@ -624,16 +649,16 @@ VarDecl<bool external>          (.
 = Type<out type>
   Ident<out name>               (.
                                     if (external) {
-                                      externalDeclarations.Push(new Symbol(name, (int)TastierKind.Var, (int)type, 0, 0));
+                                      externalDeclarations.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, 0));
                                     } else {
-                                      currentScope.Push(new Symbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
+                                      currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
   { ',' Ident<out name>         (.
                                     if (external) {
-                                      externalDeclarations.Push(new Symbol(name, (int)TastierKind.Var, (int)type, 0, 0));
+                                      externalDeclarations.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, 0));
                                     } else {
-                                      currentScope.Push(new Symbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
+                                      currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
   } ';'.
@@ -642,7 +667,7 @@ ExternDecl                      (.  string name; bool external = true; Scope cur
 = "external"
   ( VarDecl<external>
   | "procedure" Ident<out name> ';'
-                                (.  externalDeclarations.Push(new Symbol(name, (int)TastierKind.Proc, (int)TastierType.Undefined, 1, -1)); .)
+                                (.  externalDeclarations.Push(createSymbol(name, (int)TastierKind.Proc, (int)TastierType.Undefined, 0, -1)); .)
   ) .
 
 END Tastier.
