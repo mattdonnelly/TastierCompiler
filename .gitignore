@@ -3,3 +3,6 @@ doc/*
 *.exe
 *.asm
 *.bc
+
+# OS X
+.DS_Store
