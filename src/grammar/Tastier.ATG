@@ -447,9 +447,12 @@ ProcDecl                        (.  string name; string label; Scope currentScop
 
 RelOp<out Instruction inst>
 =                               (.  inst = new Instruction("", "Equ"); .)
-  ( "=="
+  ( '='
   | '<'                         (.  inst = new Instruction("", "Lss"); .)
   | '>'                         (.  inst = new Instruction("", "Gtr"); .)
+  | "!="                        (.  inst = new Instruction("", "Neq"); .)
+  | ">="                        (.  inst = new Instruction("", "Gte"); .)
+  | "<="                        (.  inst = new Instruction("", "Lse"); .)
   ).
 
 /*------------------------------------------------------------------------*/
@@ -479,7 +482,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                       SemErr("reference to undefined variable " + name);
                                     }
                                 .)
-  ( '='                         (.
+  ( ":="                         (.
                                     if ((TastierKind)sym.Item2 != TastierKind.Var) {
                                       SemErr("cannot assign to non-variable");
                                     }
