@@ -14,29 +14,17 @@ program Test {
     if (x = y) {
       write 0;
     }
-    else {
-      write 1;
-    }
 
     if (x != y) {
       write 1;
-    }
-    else {
-      write 0;
     }
 
     if (x <= y) {
       write 1;
     }
-    else {
-      write 0;
-    }
 
     if (x >= y) {
       write 0;
-    }
-    else {
-      write 1;
     }
   }
 }
