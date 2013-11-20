@@ -412,15 +412,6 @@ ProcDecl                        (.  string name; string label; Scope currentScop
                                 .)
   '(' ')'
   '{'                           (.
-                                    if (name == "Main")
-                                    {
-                                      while (constInitInstructions.Count > 0)
-                                      {
-                                        Instruction i = constInitInstructions.Pop();
-                                        program.Add(i);
-                                      }
-                                    }
-
                                     program.Add(new Instruction("", "Enter 0"));
                                     enterInstLocation = program.Count - 1;
                                     label = generateProcedureName(name);
@@ -437,6 +428,16 @@ ProcDecl                        (.  string name; string label; Scope currentScop
                                       the stack have been allocated, we can
                                       put the right value in.
                                     */
+
+                                    if (name == "Main")
+                                    {
+                                      while (constInitInstructions.Count > 0)
+                                      {
+                                        Instruction i = constInitInstructions.Pop();
+                                        program.Add(i);
+                                      }
+                                    }
+
                                 .)
 
   { VarDecl<external> | Stat |  (.
@@ -708,14 +709,15 @@ ExternDecl                      (.  string name; bool external = true; Scope cur
                                 (.  externalDeclarations.Push(createSymbol(name, (int)TastierKind.Proc, (int)TastierType.Undefined, 1, -1)); .)
   ) .
 
-ConstDecl                       (.  string name; TastierType type; Scope currentScope = openScopes.Peek();  .)
+ConstDecl                       (.  string name; int n; Scope currentScope = openScopes.Peek(); .)
 = "const" 
   Ident<out name> 
   "=" number 
                                 (.  
+                                    n = Convert.ToInt32(t.val);
                                     Symbol sym = createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, currentScope.Count(s => (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const)));
-                                    constInitInstructions.Push(new Instruction("", "Const " + number));
                                     constInitInstructions.Push(new Instruction("", "StoG " + (sym.Item5+3)));
+                                    constInitInstructions.Push(new Instruction("", "Const " + n));
                                     currentScope.Push(sym);
                                 .)
   ';'.
