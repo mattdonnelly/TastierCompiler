@@ -46,15 +46,23 @@ void printSymbols(Stack<Symbol> symbolTable) {
   Console.WriteLine("------------");
 
   foreach (Symbol s in symbolTableSummary) {
-    if (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const) {
+    if (s.Item2 == (int)TastierKind.Var) {
       if (s.Item3 == (int)TastierType.Integer) {
-        Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Variable, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
+        Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Integer, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
       }
       else if (s.Item3 == (int)TastierType.Boolean) {
         Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Boolean, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
       }
       else {
        Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Undefined, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
+      }
+    } 
+    else if (s.Item2 == (int)TastierKind.Const) {
+      if (s.Item3 == (int)TastierType.Integer) {
+        Console.WriteLine(string.Format("Name: {0}, Kind: Const, Type: Integer, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
+      }
+      else {
+       Console.WriteLine(string.Format("Name: {0}, Kind: Const, Type: Undefined, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
       }
     } 
     else {
@@ -348,7 +356,7 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                     }
                                     else {
                                       type = (TastierType)sym.Item3;
-                                      if ((TastierKind)sym.Item2 == TastierKind.Var) {
+                                      if ((TastierKind)sym.Item2 == TastierKind.Var || (TastierKind)sym.Item2 == TastierKind.Const) {
                                         if (sym.Item4 == 0) {
                                             if (isExternal) {
                                               program.Add(new Instruction("", "LoadG " + sym.Item1));
@@ -577,8 +585,8 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                       SemErr("reference to undefined variable " + name);
                                     }
 
-                                    if (sym.Item2 != (int)TastierKind.Var) {
-                                      SemErr("variable type expected but " + sym.Item1 + " has kind " + (TastierType)sym.Item2);
+                                    if (sym.Item2 != (int)TastierKind.Var && sym.Item2 != (int)TastierKind.Const) {
+                                      SemErr("variable/const type expected but " + sym.Item1 + " has kind " + (TastierKind)sym.Item2);
                                     }
 
                                     if (sym.Item3 != (int)TastierType.Integer) {
@@ -618,7 +626,7 @@ Tastier                         (.  string name; bool external = false; .)
                                     openScopes.Push(new Scope());
                                 .)
   '{'
-  { VarDecl<external> | ProcDecl | ExternDecl | ConstDecl }
+  { ConstDecl | VarDecl<external> | ProcDecl | ExternDecl }
   '}'                           (.
                                     if (openScopes.Peek().Count == 0) {
                                       Warn("Warning: Program " + name + " is empty ");
@@ -626,7 +634,7 @@ Tastier                         (.  string name; bool external = false; .)
 
                                     header.Add(new Instruction("", ".names " + (externalDeclarations.Count + openScopes.Peek().Count)));
                                     foreach (Symbol s in openScopes.Peek()) {
-                                      if (s.Item2 == (int)TastierKind.Var) {
+                                      if (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const) {
                                         header.Add(new Instruction("", ".var " + ((int)s.Item3) + " " + s.Item1));
                                       } else if (s.Item2 == (int)TastierKind.Proc) {
                                         header.Add(new Instruction("", ".proc " + s.Item1));
@@ -703,11 +711,13 @@ ExternDecl                      (.  string name; bool external = true; Scope cur
 ConstDecl                       (.  string name; TastierType type; Scope currentScope = openScopes.Peek();  .)
 = "const" 
   Ident<out name> 
+  "=" number 
                                 (.  
                                     Symbol sym = createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, currentScope.Count(s => (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const)));
+                                    constInitInstructions.Push(new Instruction("", "Const " + number));
                                     constInitInstructions.Push(new Instruction("", "StoG " + (sym.Item5+3)));
                                     currentScope.Push(sym);
                                 .)
-  "=" Expr<out type> ';'.
+  ';'.
 
 END Tastier.

@@ -1,0 +1,13 @@
+program Test {
+  const x = 20;
+
+  void Main() {
+    read x;
+    if (x = 20) {
+      write 1;
+    }
+    else {
+      write 0;
+    }
+  }
+}
