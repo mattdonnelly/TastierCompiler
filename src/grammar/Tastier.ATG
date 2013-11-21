@@ -7,7 +7,8 @@ COMPILER Tastier
   enum TastierType : int {   // types for variables
     Undefined,
     Integer,
-    Boolean
+    Boolean,
+    String
   };
 
   enum TastierKind : int {  // kinds of symbol
@@ -46,27 +47,11 @@ void printSymbols(Stack<Symbol> symbolTable) {
   Console.WriteLine("------------");
 
   foreach (Symbol s in symbolTableSummary) {
-    if (s.Item2 == (int)TastierKind.Var) {
-      if (s.Item3 == (int)TastierType.Integer) {
-        Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Integer, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
-      }
-      else if (s.Item3 == (int)TastierType.Boolean) {
-        Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Boolean, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
-      }
-      else {
-       Console.WriteLine(string.Format("Name: {0}, Kind: Var, Type: Undefined, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
-      }
-    } 
-    else if (s.Item2 == (int)TastierKind.Const) {
-      if (s.Item3 == (int)TastierType.Integer) {
-        Console.WriteLine(string.Format("Name: {0}, Kind: Const, Type: Integer, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
-      }
-      else {
-       Console.WriteLine(string.Format("Name: {0}, Kind: Const, Type: Undefined, Stack Frame: {1}, Stack Frame Address: {2}", s.Item1, s.Item4, s.Item5));
-      }
-    } 
-    else {
+    if (s.Item2 == (int)TastierKind.Proc) {
       Console.WriteLine(string.Format("Label: {0}, Kind: Procedure, Stack Frame: {1}", s.Item1, s.Item4));
+    }
+    else {
+      Console.WriteLine(string.Format("Name: {0}, Kind: {1}, Type: {2}, Stack Frame: {3}, Stack Frame Address: {4}", s.Item1, (TastierKind)s.Item2, (TastierType)s.Item3, s.Item4, s.Item5));
     }
   }
 
@@ -303,8 +288,10 @@ letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
   cr  = '\r'.
   lf  = '\n'.
   tab = '\t'.
+  space = '\u0020'.
 
 TOKENS
+  stringToken = '"' {letter | digit | space | lf | tab | cr}.
   ident  = letter {letter | digit}.
   number = digit {digit}.
 
@@ -376,6 +363,21 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                     program.Add(new Instruction("", "Const " + n));
                                     type = TastierType.Integer;
                                 .)
+  | stringToken 
+                                (.
+                                    type = TastierType.String;
+
+                                    string  str = t.val;
+                                    Console.WriteLine("Found String: " + str);
+
+                                    for (int i = str.Length - 1; i > 0; i--)
+                                    {
+                                      program.Add(new Instruction("", "Const " + Convert.ToInt32(str[i])));
+                                    }    
+
+                                    program.Add(new Instruction("", "Const " + (str.Length - 1)));                              
+                                .)    
+    '\"'       
   | '-'
     Factor<out type>            (.
                                     if (type != TastierType.Integer) {
@@ -522,8 +524,14 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                       }
                                     }
                                     else {
-                                      int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
-                                      program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
+                                      if ((TastierType)sym.Item3 == TastierType.String) {
+                                        int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
+                                        program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
+                                      }
+                                      else {
+                                        int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
+                                        program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
+                                      }
                                     }
                                 .)
   | '(' ')' ';'                 (.
@@ -679,6 +687,7 @@ Type<out TastierType type>
 =                               (.  type = TastierType.Undefined; .)
  ( "int"                        (.  type = TastierType.Integer; .)
  | "bool"                       (.  type = TastierType.Boolean; .)
+ | "string"                     (.  type = TastierType.String; .)
  ).
 
 /*------------------------------------------------------------------------*/
@@ -717,9 +726,9 @@ ConstDecl                       (.  string name; int n; Scope currentScope = ope
                                 (.  
                                     n = Convert.ToInt32(t.val);
                                     Symbol sym = createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, currentScope.Count(s => (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const)));
+                                    currentScope.Push(sym);
                                     constInitInstructions.Push(new Instruction("", "StoG " + (sym.Item5+3)));
                                     constInitInstructions.Push(new Instruction("", "Const " + n));
-                                    currentScope.Push(sym);
                                 .)
   ';'.
 
