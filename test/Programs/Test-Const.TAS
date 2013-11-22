@@ -1,8 +1,0 @@
-program Test {
-  const x = 20, y = 30;
-
-  void Main() {
-    write x;
-    write y;
-  }
-}
