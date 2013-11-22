@@ -50,6 +50,9 @@ void printSymbols(Stack<Symbol> symbolTable) {
     if (s.Item2 == (int)TastierKind.Proc) {
       Console.WriteLine(string.Format("Label: {0}, Kind: Procedure, Stack Frame: {1}", s.Item1, s.Item4));
     }
+    else if (s.Item2 == (int)TastierKind.Const) {
+      Console.WriteLine(string.Format("Name: {0}, Kind: {1}, Type: {2}, Value: {3}", s.Item1, (TastierKind)s.Item2, (TastierType)s.Item3, s.Item5));
+    }
     else {
       Console.WriteLine(string.Format("Name: {0}, Kind: {1}, Type: {2}, Stack Frame: {3}, Stack Frame Address: {4}", s.Item1, (TastierKind)s.Item2, (TastierType)s.Item3, s.Item4, s.Item5));
     }
@@ -346,7 +349,7 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                     }
                                     else {
                                       type = (TastierType)sym.Item3;
-                                      if ((TastierKind)sym.Item2 == TastierKind.Var || (TastierKind)sym.Item2 == TastierKind.Const) {
+                                      if ((TastierKind)sym.Item2 == TastierKind.Var) {
                                         if (sym.Item4 == 0) {
                                             if (isExternal) {
                                               program.Add(new Instruction("", "LoadG " + sym.Item1));
@@ -363,7 +366,10 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                             int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
                                             program.Add(new Instruction("", "Load " + lexicalLevelDifference + " " + sym.Item5));
                                         }
-                                      } else SemErr("variable expected");
+                                      } else if ((TastierKind)sym.Item2 == TastierKind.Const) {
+                                        program.Add(new Instruction("", "Const " + sym.Item5));
+                                      } 
+                                      else SemErr("variable expected");
                                     }
                                 .)
   | number                      (.
@@ -455,7 +461,7 @@ ProcDecl                        (.  string name; string label; Scope currentScop
                                     // now we can generate the Enter instruction properly
                                     program[enterInstLocation] =
                                       new Instruction(label, "Enter " +
-                                                      currentScope.Count(s => (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const)));
+                                                      currentScope.Count(s => s.Item2 == (int)TastierKind.Var));
                                     openProcedureDeclarations.Pop();
                                 .).
 
@@ -714,14 +720,14 @@ VarDecl<bool external>          (.
                                     if (external) {
                                       externalDeclarations.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, 0));
                                     } else {
-                                      currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const))));
+                                      currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
   { ',' Ident<out name>         (.
                                     if (external) {
                                       externalDeclarations.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, 0));
                                     } else {
-                                      currentScope.Push(new Symbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const))));
+                                      currentScope.Push(new Symbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
   } ';'.
@@ -739,11 +745,14 @@ ConstDecl                       (.  string name; int n; Scope currentScope = ope
   "=" number 
                                 (.  
                                     n = Convert.ToInt32(t.val);
-                                    Symbol sym = createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, currentScope.Count(s => (s.Item2 == (int)TastierKind.Var || s.Item2 == (int)TastierKind.Const)));
-                                    currentScope.Push(sym);
-                                    constInitInstructions.Push(new Instruction("", "StoG " + (sym.Item5+3)));
-                                    constInitInstructions.Push(new Instruction("", "Const " + n));
+                                    currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
                                 .)
-  ';'.
+  { ',' Ident<out name> 
+    "=" number 
+                                (.  
+                                    n = Convert.ToInt32(t.val);
+                                    currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
+                                .)
+  } ';'.
 
 END Tastier.
