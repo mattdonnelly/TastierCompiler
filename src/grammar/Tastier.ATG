@@ -147,7 +147,7 @@ Scope externalDeclarations = new Scope();
 Stack<Instruction> constInitInstructions = new Stack<Instruction>();
 
 int globalMemoryOffset = 3;
-Dictionary <String, int> variableMemoryMap = new Dictionary <String, int> ();
+Dictionary <int, int> variableMemoryMap = new Dictionary <int, int> ();
 
 /*
   Every time we encounter a new procedure declaration in the program, we want
@@ -297,7 +297,7 @@ letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
   space = '\u0020'.
 
 TOKENS
-  stringToken = '"' {letter | digit | space | lf | tab | cr}.
+  stringToken = '"' {letter | digit | space | lf | tab | cr} '"'.
   ident  = letter {letter | digit}.
   number = digit {digit}.
 
@@ -356,10 +356,10 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                             // if the symbol is external, we load it by name. The linker will resolve the name to an address.
                                           } else {
                                             if ((TastierType)sym.Item3 == TastierType.String) {
-                                              program.Add(new Instruction("", "Const " + (variableMemoryMap[sym.Item1] - 3)));
+                                              program.Add(new Instruction("", "Const " + (variableMemoryMap[sym.Item5] - 3)));
                                             }
                                             else {
-                                              program.Add(new Instruction("", "LoadG " + variableMemoryMap[sym.Item1]));
+                                              program.Add(new Instruction("", "LoadG " + variableMemoryMap[sym.Item5]));
                                             }
                                           }
                                         } else {
@@ -520,7 +520,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                         // if the symbol is external, we also store it by name. The linker will resolve the name to an address.
                                       } else {
                                         program.Add(new Instruction("", "StoG " + globalMemoryOffset));
-                                        variableMemoryMap.Add(name, globalMemoryOffset);
+                                        variableMemoryMap.Add(sym.Item5, globalMemoryOffset);
                                         globalMemoryOffset++;
                                       }
                                     }
@@ -535,10 +535,16 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
 
                                     string  str = t.val;
                                     str = str.Remove(0,1);
+                                    str = str.Remove(str.Length - 1);
 
                                     program.Add(new Instruction("", "Const " + str.Length));
                                     program.Add(new Instruction("", "StoG " + globalMemoryOffset));
-                                    variableMemoryMap.Add(name, globalMemoryOffset);
+                                    if (variableMemoryMap.ContainsKey(sym.Item5)) {
+                                      variableMemoryMap[sym.Item5] = globalMemoryOffset;
+                                    }
+                                    else {
+                                      variableMemoryMap.Add(sym.Item5, globalMemoryOffset);
+                                    }
                                     globalMemoryOffset++;
 
                                     for (int i = 0; i < str.Length; i++)
@@ -548,7 +554,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                       globalMemoryOffset++;
                                     }
                                 .)    
-    '\"') ';'
+    ) ';'
   | '(' ')' ';'                 (.
                                     if ((TastierKind)sym.Item2 != TastierKind.Proc) {
                                       SemErr("object is not a procedure");
