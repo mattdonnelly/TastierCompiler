@@ -639,7 +639,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                 .)
 
 | "write"
-  Expr<out type> ';'            (.
+  Expr<out type>                (.
                                   if (type != TastierType.Integer && type != TastierType.String) {
                                     SemErr("integer type expected");
                                   }
@@ -650,7 +650,20 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                     program.Add(new Instruction("", "WriteStr"));
                                   }
                                 .)
-
+  {',' Expr<out type>           (.
+                                  if (type != TastierType.Integer && type != TastierType.String) {
+                                    SemErr("integer type expected");
+                                  }
+                                  if (type == TastierType.Integer) {
+                                    program.Add(new Instruction("", "Write"));
+                                  }
+                                  else if (type == TastierType.String) {
+                                    program.Add(new Instruction("", "WriteStr"));
+                                  }
+                                .)
+  
+  }
+  ';' 
 | '{' { Stat | VarDecl<external> } '}' .
 
 /*------------------------------------------------------------------------*/

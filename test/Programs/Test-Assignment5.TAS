@@ -3,14 +3,11 @@ program Test {
   string test1;
 
   void Main() {
-  	write x;
-  	write y;
+  	write x, y;
 
   	test1 := "Hello";
-  	write test1;
-
   	string test2;
-  	test2 := "Hello again";
-  	write test2;
+  	test2 := "World";
+  	write test1, test2;
   }
 }
