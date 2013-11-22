@@ -147,7 +147,7 @@ Scope externalDeclarations = new Scope();
 Stack<Instruction> constInitInstructions = new Stack<Instruction>();
 
 int globalMemoryOffset = 3;
-List <int> variableMemoryMap = new List<int>();
+Dictionary <String, int> variableMemoryMap = new Dictionary <String, int> ();
 
 /*
   Every time we encounter a new procedure declaration in the program, we want
@@ -351,20 +351,20 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                       type = (TastierType)sym.Item3;
                                       if ((TastierKind)sym.Item2 == TastierKind.Var) {
                                         if (sym.Item4 == 0) {
-                                            if (isExternal) {
-                                              program.Add(new Instruction("", "LoadG " + sym.Item1));
-                                              // if the symbol is external, we load it by name. The linker will resolve the name to an address.
-                                            } else {
-                                              if ((TastierType)sym.Item3 == TastierType.String) {
-                                                 program.Add(new Instruction("", "Const " + (variableMemoryMap[sym.Item5] - 3)));
-                                              }
-                                              else {
-                                                 program.Add(new Instruction("", "LoadG " + variableMemoryMap[sym.Item5]));
-                                              }
+                                          if (isExternal) {
+                                            program.Add(new Instruction("", "LoadG " + sym.Item1));
+                                            // if the symbol is external, we load it by name. The linker will resolve the name to an address.
+                                          } else {
+                                            if ((TastierType)sym.Item3 == TastierType.String) {
+                                              program.Add(new Instruction("", "Const " + (variableMemoryMap[sym.Item1] - 3)));
                                             }
+                                            else {
+                                              program.Add(new Instruction("", "LoadG " + variableMemoryMap[sym.Item1]));
+                                            }
+                                          }
                                         } else {
-                                            int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
-                                            program.Add(new Instruction("", "Load " + lexicalLevelDifference + " " + sym.Item5));
+                                          int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
+                                          program.Add(new Instruction("", "Load " + lexicalLevelDifference + " " + sym.Item5));
                                         }
                                       } else if ((TastierKind)sym.Item2 == TastierKind.Const) {
                                         program.Add(new Instruction("", "Const " + sym.Item5));
@@ -520,7 +520,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                         // if the symbol is external, we also store it by name. The linker will resolve the name to an address.
                                       } else {
                                         program.Add(new Instruction("", "StoG " + globalMemoryOffset));
-                                        variableMemoryMap.Add(globalMemoryOffset);
+                                        variableMemoryMap.Add(name, globalMemoryOffset);
                                         globalMemoryOffset++;
                                       }
                                     }
@@ -538,7 +538,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
 
                                     program.Add(new Instruction("", "Const " + str.Length));
                                     program.Add(new Instruction("", "StoG " + globalMemoryOffset));
-                                    variableMemoryMap.Add(globalMemoryOffset);
+                                    variableMemoryMap.Add(name, globalMemoryOffset);
                                     globalMemoryOffset++;
 
                                     for (int i = 0; i < str.Length; i++)
@@ -720,15 +720,24 @@ VarDecl<bool external>          (.
                                     if (external) {
                                       externalDeclarations.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, 0));
                                     } else {
-                                      currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
+                                      if (type == TastierType.String) {
+                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, variableMemoryMap.Count));
+                                      }
+                                      else {
+                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
+                                      }
                                     }
                                 .)
   { ',' Ident<out name>         (.
                                     if (external) {
                                       externalDeclarations.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, 0));
                                     } else {
-                                      currentScope.Push(new Symbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
-                                    }
+                                      if (type == TastierType.String) {
+                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, 0, variableMemoryMap.Count));
+                                      }
+                                      else {
+                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
+                                      }                                    }
                                 .)
   } ';'.
 
@@ -747,7 +756,8 @@ ConstDecl                       (.  string name; int n; Scope currentScope = ope
                                     n = Convert.ToInt32(t.val);
                                     currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
                                 .)
-  { ',' Ident<out name> 
+  { ',' 
+    Ident<out name> 
     "=" number 
                                 (.  
                                     n = Convert.ToInt32(t.val);
