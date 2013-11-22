@@ -1,0 +1,16 @@
+program Test {
+  const x = 20, y = 30;
+  string test1;
+
+  void Main() {
+  	write x;
+  	write y;
+
+  	test1 := "Hello";
+  	write test1;
+
+  	string test2;
+  	test2 := "World";
+  	write test2;
+  }
+}
