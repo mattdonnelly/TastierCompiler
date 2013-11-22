@@ -1,6 +1,14 @@
 program Test {
+  int x;
+  string test;
+  int y;
+
   void Main() {
-    string test;
+  	x := 1;
     test := "Hello";
+    y := 2;
+    write x;
+    write y;
+    write test;
   }
 }
