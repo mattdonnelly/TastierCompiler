@@ -36,9 +36,9 @@ Stack<Symbol> symbolTableSummary = new Stack<Symbol>();
 
 Symbol createSymbol(string name, int kind, int type, int stackFrame, int stackIndex) {
   Symbol s = new Symbol(name, kind, type, stackFrame, stackIndex);
-  
+
   symbolTableSummary.Push(s);
-  
+
   return s;
 }
 
@@ -368,7 +368,7 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                         }
                                       } else if ((TastierKind)sym.Item2 == TastierKind.Const) {
                                         program.Add(new Instruction("", "Const " + sym.Item5));
-                                      } 
+                                      }
                                       else SemErr("variable expected");
                                     }
                                 .)
@@ -529,7 +529,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                       program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
                                     }
                                 .)
-    | stringToken 
+    | stringToken
                                 (.
                                     type = TastierType.String;
 
@@ -553,7 +553,7 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                       program.Add(new Instruction("", "StoG " + globalMemoryOffset));
                                       globalMemoryOffset++;
                                     }
-                                .)    
+                                .)
     ) ';'
   | '(' ')' ';'                 (.
                                     if ((TastierKind)sym.Item2 != TastierKind.Proc) {
@@ -661,9 +661,9 @@ Stat                            (.  TastierType type; string name; Symbol sym; b
                                     program.Add(new Instruction("", "WriteStr"));
                                   }
                                 .)
-  
+
   }
-  ';' 
+  ';'
 | '{' { Stat | VarDecl<external> } '}' .
 
 /*------------------------------------------------------------------------*/
@@ -768,17 +768,17 @@ ExternDecl                      (.  string name; bool external = true; Scope cur
   ) .
 
 ConstDecl                       (.  string name; int n; Scope currentScope = openScopes.Peek(); .)
-= "const" 
-  Ident<out name> 
-  "=" number 
-                                (.  
+= "const"
+  Ident<out name>
+  "=" number
+                                (.
                                     n = Convert.ToInt32(t.val);
                                     currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
                                 .)
-  { ',' 
-    Ident<out name> 
-    "=" number 
-                                (.  
+  { ','
+    Ident<out name>
+    "=" number
+                                (.
                                     n = Convert.ToInt32(t.val);
                                     currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
                                 .)
