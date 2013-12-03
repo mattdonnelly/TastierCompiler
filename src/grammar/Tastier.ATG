@@ -571,8 +571,7 @@ Stat                            (.  TastierType type; TastierType type2; string 
                                     }
                                     globalMemoryOffset++;
 
-                                    for (int i = 0; i < str.Length; i++)
-                                    {
+                                    for (int i = 0; i < str.Length; i++) {
                                       program.Add(new Instruction("", "Const " + Convert.ToInt32(str[str.Length - i - 1])));
                                       program.Add(new Instruction("", "StoG " + globalMemoryOffset));
                                       globalMemoryOffset++;
@@ -625,6 +624,134 @@ Stat                            (.  TastierType type; TastierType type2; string 
                                     program.Add(new Instruction("", "FJmp " + openLabels.Peek())); // jump to the loop end label if condition is false
                                 .)
       Stat                      (.  program.Add(new Instruction("", "Jmp " + loopStartLabel));
+                                    program.Add(new Instruction(openLabels.Pop(), "Nop")); // put the loop end label here
+                                .)
+| "for"                         (.  List<Instruction> updateInstructions = new List<Instruction>(); int updateInstructionsStart; .)
+  '('
+  Ident<out name>               (.
+                                    sym = lookup(openScopes, name);
+                                    if (sym == null) {
+                                      SemErr("reference to undefined variable " + name);
+                                    }
+                                .)
+  ":="                          (.
+                                    if ((TastierKind)sym.Item2 != TastierKind.Var) {
+                                      SemErr("cannot assign to non-variable");
+                                    }
+                                .)
+  Expr<out type>                (.
+                                    if (type != (TastierType)sym.Item3) {
+                                      SemErr("incompatible types");
+                                    }
+
+                                    if (sym.Item4 == 0) {
+                                      program.Add(new Instruction("", "StoG " + globalMemoryOffset));
+                                      variableMemoryMap.Add(sym.Item5, globalMemoryOffset);
+                                      globalMemoryOffset++;
+                                    }
+                                    else {
+                                      int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
+                                      program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
+                                    }
+                                .)
+  {','
+   Ident<out name>              (.
+                                    sym = lookup(openScopes, name);
+                                    if (sym == null) {
+                                      SemErr("reference to undefined variable " + name);
+                                    }
+                                .)
+   ":="                          (.
+                                    if ((TastierKind)sym.Item2 != TastierKind.Var) {
+                                      SemErr("cannot assign to non-variable");
+                                    }
+                                .)
+   Expr<out type>               (.
+                                    if (type != (TastierType)sym.Item3) {
+                                      SemErr("incompatible types");
+                                    }
+
+                                    if (sym.Item4 == 0) {
+                                      program.Add(new Instruction("", "StoG " + globalMemoryOffset));
+                                      variableMemoryMap.Add(sym.Item5, globalMemoryOffset);
+                                      globalMemoryOffset++;
+                                    }
+                                    else {
+                                      int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
+                                      program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
+                                    }
+                                .)
+  }
+  ';'                           (.
+                                    string loopStartLabel = generateLabel();
+                                    openLabels.Push(generateLabel()); //second label is for the loop end
+                                    program.Add(new Instruction(loopStartLabel, "Nop"));
+                                .)
+  Expr<out type>                (.
+                                    if ((TastierType)type != TastierType.Boolean) {
+                                      SemErr("boolean type expected");
+                                    }
+                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek())); // jump to the loop end label if condition is false
+                                .)
+  ';'
+  Ident<out name>               (.
+                                    sym = lookup(openScopes, name);
+                                    if (sym == null) {
+                                      SemErr("reference to undefined variable " + name);
+                                    }
+                                .)
+  ":="                          (.
+                                    if ((TastierKind)sym.Item2 != TastierKind.Var) {
+                                      SemErr("cannot assign to non-variable");
+                                    }
+
+                                    // after this the program will add the update isntructions which we need to move to the bottom of the loop
+                                    updateInstructionsStart = program.Count;
+                                .)
+  Expr<out type>                (.
+                                    if (type != (TastierType)sym.Item3) SemErr("incompatible types");
+
+                                    if (sym.Item4 == 0) {
+                                      program.Add(new Instruction("", "StoG " + (sym.Item5 + 3) ));
+                                    } else {
+                                      int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
+                                      program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
+                                    }
+                                .)
+  {','
+   Ident<out name>              (.
+                                   sym = lookup(openScopes, name);
+                                    if (sym == null) {
+                                      SemErr("reference to undefined variable " + name);
+                                    }
+                                .)
+   ":="                         (.
+                                    if ((TastierKind)sym.Item2 != TastierKind.Var) {
+                                      SemErr("cannot assign to non-variable");
+                                    }
+                                .)
+   Expr<out type>               (.
+                                    if (type != (TastierType)sym.Item3) SemErr("incompatible types");
+
+                                    if (sym.Item4 == 0) {
+                                      program.Add(new Instruction("", "StoG " + (sym.Item5 + 3) ));
+                                    } else {
+                                      int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
+                                      program.Add(new Instruction("", "Sto " + lexicalLevelDifference + " " + sym.Item5));
+                                    }
+                                .)
+  } ')'                         (.
+                                    // pop off all the update instructions from the program to be added at the end of the loop
+                                    while (updateInstructionsStart < program.Count) {
+                                      updateInstructions.Add(program[updateInstructionsStart]);
+                                      program.RemoveAt(updateInstructionsStart);
+                                    }
+                                .)
+  '{' Stat '}'                  (.
+                                    foreach (Instruction i in updateInstructions) {
+                                      program.Add(i);
+                                    }
+                                    program.Add(new Instruction("", "Jmp " + loopStartLabel));
                                     program.Add(new Instruction(openLabels.Pop(), "Nop")); // put the loop end label here
                                 .)
 | "read"
