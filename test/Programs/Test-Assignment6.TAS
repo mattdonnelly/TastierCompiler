@@ -3,7 +3,7 @@ program Test {
     int x, y, z;
     x := 10;
     y := 5;
-    z := x > y ? 2 : 1;
+    z := x > y ? 10 : 0;
     write z;
 
     int i;
