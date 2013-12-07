@@ -330,29 +330,29 @@ Expr<out TastierType type>      (.  TastierType type1; Instruction inst; .)
                                     }
                                 .)
   ]
-  ['?'                      (.
-                                if ((TastierType)type != TastierType.Boolean) {
-                                  SemErr("boolean type expected for ternary operator");
-                                }
+  ['?'                          (.
+                                    if ((TastierType)type != TastierType.Boolean) {
+                                      SemErr("boolean type expected for ternary operator");
+                                    }
 
-                                openLabels.Push(generateLabel());
-                                program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
-                            .)
-   Expr<out type>           (.
-                                Instruction startOfElse = new Instruction(openLabels.Pop(), "Nop");
-                                openLabels.Push(generateLabel());
-                                program.Add(new Instruction("", "Jmp " + openLabels.Peek()));
-                                program.Add(startOfElse);
-                            .)
+                                    openLabels.Push(generateLabel());
+                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
+                                .)
+   Expr<out type>               (.
+                                    Instruction startOfElse = new Instruction(openLabels.Pop(), "Nop");
+                                    openLabels.Push(generateLabel());
+                                    program.Add(new Instruction("", "Jmp " + openLabels.Peek()));
+                                    program.Add(startOfElse);
+                                .)
    ':'
    Expr<out type1>
-                            (.
-                                if (type != type1) {
-                                  SemErr("ternary operator expressions must be of same type");
-                                } else {
-                                  program.Add(new Instruction(openLabels.Pop(), "Nop"));
-                                }
-                            .)
+                                (.
+                                    if (type != type1) {
+                                      SemErr("ternary operator expressions must be of same type");
+                                    } else {
+                                      program.Add(new Instruction(openLabels.Pop(), "Nop"));
+                                    }
+                                .)
   ].
 
 /*------------------------------------------------------------------------*/
@@ -369,7 +369,8 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
 
                                     if (sym == null) {
                                       SemErr("reference to undefined variable " + name);
-                                    } else {
+                                    }
+                                    else {
                                       type = (TastierType)sym.Item3;
                                       if ((TastierKind)sym.Item2 == TastierKind.Var) {
                                         if (sym.Item4 == 0 || type == TastierType.String) {
@@ -379,13 +380,18 @@ Factor<out TastierType type>    (.  int n; Symbol sym; string name; .)
                                             } else {
                                               program.Add(new Instruction("", "LoadG " + (sym.Item5 + 3) ));
                                             }
-                                        } else {
+                                        }
+                                        else {
                                             int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4)-1;
                                             program.Add(new Instruction("", "Load " + lexicalLevelDifference + " " + sym.Item5));
                                         }
-                                      } else if ((TastierKind)sym.Item2 == TastierKind.Const) {
+                                      }
+                                      else if ((TastierKind)sym.Item2 == TastierKind.Const) {
                                         program.Add(new Instruction("", "Const " + sym.Item5));
-                                      } else SemErr("variable expected");
+                                      }
+                                      else {
+                                        SemErr("variable expected");
+                                      }
                                     }
                                 .)
   | stringToken
@@ -538,12 +544,11 @@ Ident<out name>                 (.
                                       sym = _lookup(externalDeclarations, name);
                                       external = true;
                                     }
-                                    if (sym == null) {
-                                      SemErr("reference to undefined variable " + name);
-                                      external = false;
-                                    }
                                     else {
                                       external = false;
+                                    }
+                                    if (sym == null) {
+                                      SemErr("reference to undefined variable " + name);
                                     }
                                 .)
 ":="                            (.
