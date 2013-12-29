@@ -1,0 +1,10 @@
+program Test {
+    int[2] arr;
+
+    void Main() {
+        arr[0] := 1;
+        arr[1] := 2;
+        write arr[0];
+        write arr[1];
+    }
+}
