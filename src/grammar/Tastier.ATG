@@ -4,19 +4,19 @@ COMPILER Tastier
   First, let's declare all the types we're going to use.
 */
 
-  enum TastierType : int {   // types for variables
+enum TastierType : int {   // types for variables
     Undefined,
     Integer,
     Boolean,
     String
-  };
+};
 
-  enum TastierKind : int {  // kinds of symbol
+enum TastierKind : int {  // kinds of symbol
     Var,
     Const,
     Proc,
     Array
-  };
+};
 
 /*
   You'll notice some type aliases, such as the one just below, are commented
@@ -36,33 +36,34 @@ COMPILER Tastier
 Stack<Symbol> symbolTableSummary = new Stack<Symbol>();
 
 Symbol createSymbol(string name, int kind, int type, int stackFrame, int stackIndex) {
-  Symbol s = new Symbol(name, kind, type, stackFrame, stackIndex);
+    Symbol s = new Symbol(name, kind, type, stackFrame, stackIndex);
 
-  symbolTableSummary.Push(s);
+    symbolTableSummary.Push(s);
 
-  return s;
+    return s;
 }
 
 void printSymbols(Stack<Symbol> symbolTable) {
-  Console.WriteLine("\nSymbol Table");
-  Console.WriteLine("------------");
+    Console.WriteLine("\nSymbol Table");
+    Console.WriteLine("------------");
 
-  foreach (Symbol s in symbolTableSummary) {
-    if (s.Item2 == (int)TastierKind.Proc) {
-      Console.WriteLine(string.Format("Label: {0}, Kind: Procedure, Stack Frame: {1}", s.Item1, s.Item4));
+    foreach (Symbol s in symbolTableSummary) {
+        if (s.Item2 == (int)TastierKind.Proc) {
+            Console.WriteLine(string.Format("Label: {0}, Kind: Procedure, Stack Frame: {1}", s.Item1, s.Item4));
+        }
+        else if (s.Item2 == (int)TastierKind.Const) {
+            Console.WriteLine(string.Format("Name: {0}, Kind: {1}, Type: {2}, Value: {3}",
+                                            s.Item1, (TastierKind)s.Item2, (TastierType)s.Item3, s.Item5));
+        }
+        else {
+            Console.WriteLine(string.Format("Name: {0}, Kind: {1}, Type: {2}, Stack Frame: {3}, Stack Frame Address: {4}",
+                                            s.Item1, (TastierKind)s.Item2, (TastierType)s.Item3, s.Item4, s.Item5));
+        }
     }
-    else if (s.Item2 == (int)TastierKind.Const) {
-      Console.WriteLine(string.Format("Name: {0}, Kind: {1}, Type: {2}, Value: {3}", s.Item1, (TastierKind)s.Item2, (TastierType)s.Item3, s.Item5));
-    }
-    else {
-      Console.WriteLine(string.Format("Name: {0}, Kind: {1}, Type: {2}, Stack Frame: {3}, Stack Frame Address: {4}",
-                                      s.Item1, (TastierKind)s.Item2, (TastierType)s.Item3, s.Item4, s.Item5));
-    }
-  }
 
-  Console.WriteLine("");
+    Console.WriteLine("");
 
-  symbolTable.Clear();
+    symbolTable.Clear();
 }
 
 /*
@@ -113,7 +114,7 @@ void printSymbols(Stack<Symbol> symbolTable) {
                       Item4, -1 if procedure
 */
 
-  class Scope : Stack<Symbol> {}
+class Scope : Stack<Symbol> {}
 
 /*
   A scope contains a stack of symbol definitions. Every time we come across
@@ -125,7 +126,7 @@ void printSymbols(Stack<Symbol> symbolTable) {
 */
 
   //using Instruction = Tuple<string, string>;
-  class Program : List<Instruction> {}
+class Program : List<Instruction> {}
 
 /*
   A program is just a list of instructions. When the program is loaded into
@@ -178,15 +179,16 @@ Stack<string> openProcedureDeclarations = new Stack<string>();
 */
 
 string generateProcedureName(string name) {
-  if (openProcedureDeclarations.Count == 0) {
-    return name;
-  } else {
-    string temp = name;
-    foreach (string s in openProcedureDeclarations) {
-      temp = s + "$" + temp;
+    if (openProcedureDeclarations.Count == 0) {
+        return name;
     }
-    return temp;
-  }
+    else {
+        string temp = name;
+        foreach (string s in openProcedureDeclarations) {
+            temp = s + "$" + temp;
+        }
+        return temp;
+    }
 }
 
 /*
@@ -197,36 +199,36 @@ string generateProcedureName(string name) {
 */
 
 string getLabelForProcedureName(int lexicalLevelDifference, string name) {
-  /*
-     We want to skip <lexicalLevelDifference> labels backwards, but compose
-     a label that incorporates the names of all the enclosing procedures up
-     to that point. A lexical level difference of zero indicates a procedure
-     defined in the current scope; a difference of 1 indicates a procedure
-     defined in the enclosing scope, and so on.
-  */
-  int numOpenProcedures = openProcedureDeclarations.Count;
-  int numNamesToUse = (numOpenProcedures - lexicalLevelDifference);
-  string theLabel = name;
+    /*
+       We want to skip <lexicalLevelDifference> labels backwards, but compose
+       a label that incorporates the names of all the enclosing procedures up
+       to that point. A lexical level difference of zero indicates a procedure
+       defined in the current scope; a difference of 1 indicates a procedure
+       defined in the enclosing scope, and so on.
+    */
+    int numOpenProcedures = openProcedureDeclarations.Count;
+    int numNamesToUse = (numOpenProcedures - lexicalLevelDifference);
+    string theLabel = name;
 
-  /*
-    We need to concatenate the first <numNamesToUse> labels with a "$" to
-    get the name of the label we need to call.
-  */
+    /*
+      We need to concatenate the first <numNamesToUse> labels with a "$" to
+      get the name of the label we need to call.
+    */
 
-  var names = openProcedureDeclarations.Take(numNamesToUse);
+    var names = openProcedureDeclarations.Take(numNamesToUse);
 
-  foreach (string s in names) {
-      theLabel = s + "$" + theLabel;
-  }
+    foreach (string s in names) {
+        theLabel = s + "$" + theLabel;
+    }
 
-  return theLabel;
+    return theLabel;
 }
 
 Stack<string> openLabels = new Stack<string>();
 int labelSeed = 0;
 
 string generateLabel() {
-  return "L$"+labelSeed++;
+    return "L$"+labelSeed++;
 }
 
 /*
@@ -248,31 +250,31 @@ string generateLabel() {
 */
 
 Symbol _lookup(Scope scope, string name) {
-  foreach (Symbol s in scope) {
-      if (s.Item1 == name) {
-        return s;
-      }
-  }
-  return null;
+    foreach (Symbol s in scope) {
+        if (s.Item1 == name) {
+          return s;
+        }
+    }
+    return null;
 }
 
 Symbol lookup(Stack<Scope> scopes, string name) {
-  int stackFrameOffset = 0;
-  int variableOffset = 0;
+    int stackFrameOffset = 0;
+    int variableOffset = 0;
 
-  foreach (Scope scope in scopes) {
-    foreach (Symbol s in scope) {
-      if (s.Item1 == name) {
-        return s;
-      }
-      else {
-        variableOffset += 1;
-      }
+    foreach (Scope scope in scopes) {
+        foreach (Symbol s in scope) {
+            if (s.Item1 == name) {
+                return s;
+            }
+            else {
+                variableOffset += 1;
+            }
+        }
+        stackFrameOffset += 1;
+        variableOffset = 0;
     }
-    stackFrameOffset += 1;
-    variableOffset = 0;
-  }
-  return null; // if the name wasn't found in any open scopes.
+    return null; // if the name wasn't found in any open scopes.
 }
 
 /*
@@ -287,17 +289,17 @@ Symbol lookup(Stack<Scope> scopes, string name) {
 /*--------------------------------------------------------------------------*/
 
 CHARACTERS
-letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
-  digit = "0123456789".
-  cr  = '\r'.
-  lf  = '\n'.
-  tab = '\t'.
-  space = '\u0020'.
+    letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+    digit = "0123456789".
+    cr  = '\r'.
+    lf  = '\n'.
+    tab = '\t'.
+    space = '\u0020'.
 
 TOKENS
-  stringToken = '"' {letter | digit | space | lf | tab | cr} '"'.
-  ident  = letter {letter | digit}.
-  number = digit {digit}.
+    stringToken = '"' {letter | digit | space | lf | tab | cr} '"'.
+    ident  = letter {letter | digit}.
+    number = digit {digit}.
 
 COMMENTS FROM "/*" TO "*/" NESTED
 COMMENTS FROM "//" TO lf
