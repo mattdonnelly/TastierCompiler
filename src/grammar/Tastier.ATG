@@ -295,10 +295,11 @@ CHARACTERS
     cr  = '\r'.
     lf  = '\n'.
     tab = '\t'.
-    space = '\u0020'.
+    stringCh  = ANY - '"' - '\\' - cr - lf.
+    printable = '\u0020' .. '\u007e'.
 
 TOKENS
-    stringToken = '"' {letter | digit | space | lf | tab | cr} '"'.
+    string    = '"' { stringCh | '\\' printable } '"'.
     ident  = letter {letter | digit}.
     number = digit {digit}.
 
@@ -410,7 +411,7 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                         SemErr("variable expected");
                                     }
                                 .)
-  | stringToken
+  | string
                                 (.
                                     type = TastierType.String;
 
@@ -676,7 +677,12 @@ Assignment ';'
       [ "else"
         Stat
       ]                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
-
+| SwitchStat
+| "break" ';'                   (.
+                                    String temp = openLabels.Pop();
+                                    program.Add(new Instruction("", "Jmp " + openLabels.Peek()));
+                                    openLabels.Push(temp);
+                                .)
 | "while"                       (.  string loopStartLabel = generateLabel();
                                     openLabels.Push(generateLabel()); //second label is for the loop end
                                     program.Add(new Instruction(loopStartLabel, "Nop"));
@@ -771,6 +777,38 @@ Assignment ';'
   ';'
 
 | '{' { Stat | VarDecl } '}' .
+
+SwitchStat                      (.  TastierType type, type2; int startingLength; List<Instruction> conditionInstructions; .)
+=
+"switch"                        (.  startingLength = program.Count(); .)
+'(' Expr<out type> ')' '{'      (.
+                                    conditionInstructions = program.GetRange(startingLength, program.Count() - startingLength);
+
+                                    if (type == TastierType.String) {
+                                        SemErr("Cannot use String inside switch condition");
+                                    }
+
+                                    openLabels.Push(generateLabel());
+                                .)
+    {
+        "case"
+        Expr<out type2> ':'     (.
+                                    if (type != type2) {
+                                        SemErr("incompatible types");
+                                    }
+
+                                    openLabels.Push(generateLabel());
+                                    program.Add(new Instruction("", "Equ"));
+                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
+                                .)
+        Stat                    (.
+                                    program.Add(new Instruction(openLabels.Pop(), "Nop"));
+                                    program.AddRange(conditionInstructions);
+                                .)
+    }
+    [ "default" ':' Stat ]
+'}'                             (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .).
+
 
 /*------------------------------------------------------------------------*/
 
