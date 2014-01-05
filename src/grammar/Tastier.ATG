@@ -658,13 +658,13 @@ Assignment ';'
 
 | FlowControlStat
 
-| IOStat
+| IOStat ';'
 
 | '{' { Stat | VarDecl } '}' .
 
 /*------------------------------------------------------------------------*/
 
-FlowControlStat                 (.  TastierType type, type2; int startingLength; List<Instruction> conditionInstructions; .)
+FlowControlStat                 (.  TastierType type, type2; int conditionStart; List<Instruction> conditionInstructions; .)
 =
 "if"
     '(' Expr<out type> ')'      (.
@@ -689,12 +689,12 @@ FlowControlStat                 (.  TastierType type, type2; int startingLength;
         Stat
     ]                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
 
-|   "switch"                    (.  startingLength = program.Count(); .)
+|   "switch"                    (.  conditionStart = program.Count(); .)
     '(' Expr<out type> ')' '{'  (.
-                                    conditionInstructions = program.GetRange(startingLength, program.Count() - startingLength);
+                                    conditionInstructions = program.GetRange(conditionStart, program.Count() - conditionStart);
 
                                     if (type == TastierType.String) {
-                                        SemErr("Cannot use String inside switch condition");
+                                        SemErr("Cannot use String with switch statement");
                                     }
 
                                     openLabels.Push(generateLabel());
@@ -710,7 +710,7 @@ FlowControlStat                 (.  TastierType type, type2; int startingLength;
                                     program.Add(new Instruction("", "Equ"));
                                     program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
                                 .)
-        Stat                    (.
+        [ Stat ]                 (.
                                     program.Add(new Instruction(openLabels.Pop(), "Nop"));
                                     program.AddRange(conditionInstructions);
                                 .)
@@ -776,7 +776,7 @@ FlowControlStat                 (.  TastierType type, type2; int startingLength;
 IOStat                          (. Symbol sym; string name; TastierType type; .)
 =
 "read"
-Ident<out name> ';'             (.
+Ident<out name>                 (.
                                     sym = lookup(openScopes, name);
 
                                     if (sym == null) {
@@ -824,7 +824,7 @@ Ident<out name> ';'             (.
                                     }
                                 .)
 
-} ';'.
+}.
 
 /*-----------   -----------------------------------------------------------*/
 

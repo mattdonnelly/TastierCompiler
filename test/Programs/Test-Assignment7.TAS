@@ -9,22 +9,19 @@ program Test {
         int i;
         i := 1;
         switch (i) {
+            case 1:
             case 1: {
-                write 100;
-            }
-            case 1: {
-                write 200;
+                write "They also allow waterfalling and breaks";
                 break;
             }
             case 1: {
-                write 300;
-                break;
+                write "The program wont reach this case";
             }
             case 2: {
-                write 400;
+                write 0;
             }
             default: {
-                write 500;
+                write 0;
             }
         }
     }
