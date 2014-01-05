@@ -719,9 +719,11 @@ FlowControlStat                 (.  TastierType type, type2; int startingLength;
     '}'                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
 
 |   "break" ';'                 (.
-                                    String temp = openLabels.Pop();
-                                    program.Add(new Instruction("", "Jmp " + openLabels.Peek()));
-                                    openLabels.Push(temp);
+                                    if (openLabels.Count > 1) {
+                                        String temp = openLabels.Pop();
+                                        program.Add(new Instruction("", "Jmp " + openLabels.Peek()));
+                                        openLabels.Push(temp);
+                                    }
                                 .)
 
 |   "while"                     (.  string loopStartLabel = generateLabel();
