@@ -833,7 +833,7 @@ Type<out TastierType type>
 
 VarDecl                         (.
                                     string name; TastierType type; TastierKind kind = TastierKind.Var; Scope currentScope = openScopes.Peek();
-                                    int size = 0; List<int> dimensions = new List<int>();
+                                    List<int> dimensions = new List<int>();
                                 .)
 = Type<out type>
   {
@@ -866,7 +866,7 @@ VarDecl                         (.
                                     }
                                     else if (openScopes.Count == 1 || type == TastierType.String) {
                                         currentScope.Push(createSymbol(name, (int)kind, (int)type, 0, nextFreeMemoryAddress));
-                                        nextFreeMemoryAddress += size;
+                                        nextFreeMemoryAddress += 1;
                                     }
                                     else {
                                         currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type,
@@ -895,7 +895,7 @@ VarDecl                         (.
                                     }
                                     else if (openScopes.Count == 1 || type == TastierType.String) {
                                         currentScope.Push(createSymbol(name, (int)kind, (int)type, 0, nextFreeMemoryAddress));
-                                        nextFreeMemoryAddress += size;
+                                        nextFreeMemoryAddress += 1;
                                     }
                                     else {
                                         currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type,
