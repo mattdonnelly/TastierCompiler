@@ -11,7 +11,7 @@ program Test {
         switch (i) {
             case 1:
             case 1: {
-                write "They also allow waterfalling and breaks";
+                write "Switches work and they also allow waterfalling and breaks";
                 break;
             }
             case 1: {
