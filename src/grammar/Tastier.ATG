@@ -652,18 +652,29 @@ Expr<out type>                  (.
 
 /*------------------------------------------------------------------------*/
 
-Stat                            (.  TastierType type; string name; Symbol sym;  .)
+Stat
 =
 Assignment ';'
-| "if"
-  '(' Expr<out type> ')'        (.
+
+| FlowControlStat
+
+| IOStat
+
+| '{' { Stat | VarDecl } '}' .
+
+/*------------------------------------------------------------------------*/
+
+FlowControlStat                 (.  TastierType type, type2; int startingLength; List<Instruction> conditionInstructions; .)
+=
+"if"
+    '(' Expr<out type> ')'      (.
                                     if ((TastierType)type != TastierType.Boolean) {
                                         SemErr("boolean type expected");
                                     }
                                     openLabels.Push(generateLabel());
                                     program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
                                 .)
-      Stat                      (.
+    Stat                        (.
                                     Instruction startOfElse = new Instruction(openLabels.Pop(), "Nop");
                                     /*
                                        If we got into the "if", we need to
@@ -674,35 +685,68 @@ Assignment ';'
                                     program.Add(new Instruction("", "Jmp " + openLabels.Peek()));
                                     program.Add(startOfElse);
                                 .)
-      [ "else"
+    [   "else"
         Stat
-      ]                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
-| SwitchStat
-| "break" ';'                   (.
+    ]                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
+
+|   "switch"                    (.  startingLength = program.Count(); .)
+    '(' Expr<out type> ')' '{'  (.
+                                    conditionInstructions = program.GetRange(startingLength, program.Count() - startingLength);
+
+                                    if (type == TastierType.String) {
+                                        SemErr("Cannot use String inside switch condition");
+                                    }
+
+                                    openLabels.Push(generateLabel());
+                                .)
+    {
+        "case"
+        Expr<out type2> ':'     (.
+                                    if (type != type2) {
+                                        SemErr("incompatible types");
+                                    }
+
+                                    openLabels.Push(generateLabel());
+                                    program.Add(new Instruction("", "Equ"));
+                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
+                                .)
+        Stat                    (.
+                                    program.Add(new Instruction(openLabels.Pop(), "Nop"));
+                                    program.AddRange(conditionInstructions);
+                                .)
+    }
+    [ "default" ':' Stat ]
+    '}'                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
+
+|   "break" ';'                 (.
                                     String temp = openLabels.Pop();
                                     program.Add(new Instruction("", "Jmp " + openLabels.Peek()));
                                     openLabels.Push(temp);
                                 .)
-| "while"                       (.  string loopStartLabel = generateLabel();
+
+|   "while"                     (.  string loopStartLabel = generateLabel();
                                     openLabels.Push(generateLabel()); //second label is for the loop end
                                     program.Add(new Instruction(loopStartLabel, "Nop"));
                                 .)
-  '(' Expr<out type> ')'        (.
+
+    '(' Expr<out type> ')'      (.
                                     if ((TastierType)type != TastierType.Boolean) {
                                         SemErr("boolean type expected");
                                     }
                                     program.Add(new Instruction("", "FJmp " + openLabels.Peek())); // jump to the loop end label if condition is false
                                 .)
-      Stat                      (.  program.Add(new Instruction("", "Jmp " + loopStartLabel));
+    Stat                        (.
+                                    program.Add(new Instruction("", "Jmp " + loopStartLabel));
                                     program.Add(new Instruction(openLabels.Pop(), "Nop")); // put the loop end label here
                                 .)
-| "for" '('                     (.  List<Instruction> updateInstructions = new List<Instruction>(); int updateInstructionsStart; .)
-  Assignment';'  (.
+
+|   "for" '('                   (.  List<Instruction> updateInstructions = new List<Instruction>(); int updateInstructionsStart; .)
+    Assignment';'               (.
                                     string loopStartLabel = generateLabel();
                                     openLabels.Push(generateLabel()); //second label is for the loop end
                                     program.Add(new Instruction(loopStartLabel, "Nop"));
                                 .)
-  Expr<out type>  ';'           (.
+    Expr<out type>  ';'         (.
                                     if ((TastierType)type != TastierType.Boolean) {
                                         SemErr("boolean type expected");
                                     }
@@ -710,22 +754,27 @@ Assignment ';'
 
                                     updateInstructionsStart = program.Count;
                                 .)
-  Assignment ')'                (.
+    Assignment ')'              (.
                                     // pop off all the update instructions from the program to be added at the end of the loop
                                     while (updateInstructionsStart < program.Count) {
                                         updateInstructions.Add(program[updateInstructionsStart]);
                                         program.RemoveAt(updateInstructionsStart);
                                     }
                                 .)
-  Stat                          (.
+    Stat                        (.
                                     foreach (Instruction i in updateInstructions) {
                                         program.Add(i);
                                     }
                                     program.Add(new Instruction("", "Jmp " + loopStartLabel));
                                     program.Add(new Instruction(openLabels.Pop(), "Nop")); // put the loop end label here
-                                .)
-| "read"
-  Ident<out name> ';'           (.
+                                .).
+
+/*------------------------------------------------------------------------*/
+
+IOStat                          (. Symbol sym; string name; TastierType type; .)
+=
+"read"
+Ident<out name> ';'             (.
                                     sym = lookup(openScopes, name);
 
                                     if (sym == null) {
@@ -761,7 +810,7 @@ Assignment ';'
                                         program.Add(new Instruction("", "WriteStr"));
                                     }
                                 .)
-  {',' Expr<out type>           (.
+{',' Expr<out type>             (.
                                     if (type != TastierType.Integer && type != TastierType.String) {
                                         SemErr("integer type expected");
                                     }
@@ -773,44 +822,9 @@ Assignment ';'
                                     }
                                 .)
 
-  }
-  ';'
+} ';'.
 
-| '{' { Stat | VarDecl } '}' .
-
-SwitchStat                      (.  TastierType type, type2; int startingLength; List<Instruction> conditionInstructions; .)
-=
-"switch"                        (.  startingLength = program.Count(); .)
-'(' Expr<out type> ')' '{'      (.
-                                    conditionInstructions = program.GetRange(startingLength, program.Count() - startingLength);
-
-                                    if (type == TastierType.String) {
-                                        SemErr("Cannot use String inside switch condition");
-                                    }
-
-                                    openLabels.Push(generateLabel());
-                                .)
-    {
-        "case"
-        Expr<out type2> ':'     (.
-                                    if (type != type2) {
-                                        SemErr("incompatible types");
-                                    }
-
-                                    openLabels.Push(generateLabel());
-                                    program.Add(new Instruction("", "Equ"));
-                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
-                                .)
-        Stat                    (.
-                                    program.Add(new Instruction(openLabels.Pop(), "Nop"));
-                                    program.AddRange(conditionInstructions);
-                                .)
-    }
-    [ "default" ':' Stat ]
-'}'                             (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .).
-
-
-/*------------------------------------------------------------------------*/
+/*-----------   -----------------------------------------------------------*/
 
 Tastier                         (.  string name; .)
 = "program"
