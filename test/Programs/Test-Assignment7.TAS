@@ -7,9 +7,9 @@ program Test {
 
         int[1][2] arr2;
         arr2 := arr;
-        write arr[0][0], arr[0][1];
+        write arr2[0][0], arr2[0][1];
 
-        /*int i;
+        int i;
         i := 1;
         switch (i) {
             case 1:
@@ -29,13 +29,15 @@ program Test {
         }
 
         struct myStruct {
-            string field1;
-            string field2;
+            int field1;
+            int[2][3] field2;
+            string field3;
         };
 
         struct myStruct test;
-        test.field1 := "Struct field 1";
-        test.field2 := "Struct field 2";
-        write test.field1, test.field2;*/
+        test.field1 := 10;
+        test.field2[0][0] := 20;
+        test.field3 := "Structs work!";
+        write test.field1, test.field2[0][0], test.field3;
     }
 }
