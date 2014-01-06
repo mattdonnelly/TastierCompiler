@@ -15,7 +15,8 @@ enum TastierKind : int {  // kinds of symbol
     Var,
     Const,
     Proc,
-    Array
+    Array,
+    Struct
 };
 
 /*
@@ -147,6 +148,14 @@ class Program : List<Instruction> {}
 Stack<Scope> openScopes = new Stack<Scope>();
 
 int nextFreeMemoryAddress = 0;
+
+/*
+   StructVarSymbol.Item1 -> type
+   StructVarSymbol.Item2 -> kind
+   StructVarSymbol.Item3 -> size of the item symbol in memory
+*/
+
+Dictionary<string, Dictionary<string, StructVarSymbol>> structs = new Dictionary<string, Dictionary<string, StructVarSymbol>>();
 
 /*
   Every time we encounter a new procedure declaration in the program, we want
@@ -300,7 +309,7 @@ CHARACTERS
 
 TOKENS
     string    = '"' { stringCh | '\\' printable } '"'.
-    ident  = letter {letter | digit}.
+    ident  = letter {letter | digit | '.'}.
     number = digit {digit}.
 
 COMMENTS FROM "/*" TO "*/" NESTED
@@ -959,7 +968,10 @@ VarDecl                         (.
                                                                        openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
-  } ';'.
+  } ';'
+| StructDecl.
+
+/*------------------------------------------------------------------------*/
 
 ConstDecl                       (.  string name; int n; Scope currentScope = openScopes.Peek(); .)
 = "const"
@@ -977,5 +989,54 @@ ConstDecl                       (.  string name; int n; Scope currentScope = ope
                                     currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
                                 .)
   } ';'.
+
+/*------------------------------------------------------------------------*/
+
+StructDecl                      (.
+                                    string name; string name1; TastierType type; TastierKind kind = TastierKind.Var; Scope currentScope = openScopes.Peek();
+                                .)
+=
+"struct" Ident<out name>
+(
+    '{' Type<out type>          (.
+                                    structs.Add(name, new Dictionary<string, StructVarSymbol>() );
+                                    kind = TastierKind.Var;
+                                .)
+    Ident<out name1> ';'        (.
+                                    structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, 1));
+                                .)
+    {
+        Type<out type>          (.
+                                    kind = TastierKind.Var;
+                                .)
+        Ident<out name1> ';'    (.
+                                    structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, 1));
+                                .)
+    }
+    '}'
+
+    |   Ident<out name1> (.
+                                    currentScope.Push(createSymbol(name1, (int)TastierKind.Struct,
+                                                                   structs[name].First().Value.Item1, 0, nextFreeMemoryAddress));
+
+                                    foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
+                                        currentScope.Push(createSymbol(name1 + "." + kvp.Key, kvp.Value.Item2,
+                                                          kvp.Value.Item1, 0, nextFreeMemoryAddress));
+                                        nextFreeMemoryAddress += kvp.Value.Item3;
+                                    }
+                                .)
+    { ','
+        Ident<out name1> (.
+                                    currentScope.Push(createSymbol(name1, (int)TastierKind.Struct,
+                                                                   structs[name].First().Value.Item1, 0, nextFreeMemoryAddress));
+
+                                    foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
+                                        currentScope.Push(createSymbol(name1 + "." + kvp.Key, kvp.Value.Item2,
+                                                          kvp.Value.Item1, 0, nextFreeMemoryAddress));
+                                        nextFreeMemoryAddress += kvp.Value.Item3;
+                                    }
+                                .)
+  }
+) ';'.
 
 END Tastier.
