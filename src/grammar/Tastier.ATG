@@ -152,6 +152,7 @@ int nextFreeMemoryAddress = 0;
 /*
    StructVarSymbol.Item1 -> type
    StructVarSymbol.Item2 -> kind
+   StructVarSymbol.Item3 -> list of dimension sizes
 */
 
 Dictionary<string, Dictionary<string, StructVarSymbol>> structs = new Dictionary<string, Dictionary<string, StructVarSymbol>>();
@@ -173,6 +174,39 @@ Program header = new Program();
 Program globalArrayInits = new Program();
 
 Stack<string> openProcedureDeclarations = new Stack<string>();
+
+void initArray(string name, int type, List<int> dimensions) {
+    Scope currentScope = openScopes.Peek();
+
+    currentScope.Push(createSymbol(name, (int)TastierKind.Array, type, 0, nextFreeMemoryAddress));
+
+    if (openScopes.Count > 1) {
+        program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
+        program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+    }
+    else {
+        globalArrayInits.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
+        globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+    }
+
+    nextFreeMemoryAddress++;
+
+    int numOfElements = 1;
+    foreach (int i in dimensions) {
+        if (openScopes.Count > 1) {
+            program.Add(new Instruction("", "Const " + i));
+            program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+        }
+        else {
+            globalArrayInits.Add(new Instruction("", "Const " + i));
+            globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+        }
+        nextFreeMemoryAddress++;
+        numOfElements *= i;
+    }
+
+    nextFreeMemoryAddress += numOfElements;
+}
 
 /*
   In order to implement the "shadowing" of global procedures by local procedures
@@ -908,34 +942,7 @@ VarDecl                         (.
   }
   Ident<out name>               (.
                                     if (kind == TastierKind.Array) {
-                                        currentScope.Push(createSymbol(name, (int)TastierKind.Array, (int)type, 0, nextFreeMemoryAddress));
-
-                                        if (openScopes.Count > 1) {
-                                                program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                        }
-                                        else {
-                                            globalArrayInits.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                            globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                        }
-
-                                        nextFreeMemoryAddress++;
-
-                                        int numOfElements = 1;
-                                        foreach (int i in dimensions) {
-                                            if (openScopes.Count > 1) {
-                                                program.Add(new Instruction("", "Const " + i));
-                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-                                            else {
-                                                globalArrayInits.Add(new Instruction("", "Const " + i));
-                                                globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-                                            nextFreeMemoryAddress++;
-                                            numOfElements *= i;
-                                        }
-
-                                        nextFreeMemoryAddress += numOfElements;
+                                        initArray(name, (int)type, dimensions);
                                     }
                                     else if (openScopes.Count == 1 || type == TastierType.String) {
                                         currentScope.Push(createSymbol(name, (int)kind, (int)type, 0, nextFreeMemoryAddress));
@@ -948,33 +955,7 @@ VarDecl                         (.
                                 .)
   { ',' Ident<out name>         (.
                                     if (kind == TastierKind.Array) {
-                                        currentScope.Push(createSymbol(name, (int)TastierKind.Array, (int)type, 0, nextFreeMemoryAddress));
-
-                                        if (openScopes.Count > 1) {
-                                                program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                        }
-                                        else {
-                                            globalArrayInits.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                            globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                        }
-
-                                        nextFreeMemoryAddress++;
-                                        int numOfElements = 1;
-                                        foreach (int i in dimensions) {
-                                            if (openScopes.Count > 1) {
-                                                program.Add(new Instruction("", "Const " + i));
-                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-                                            else {
-                                                globalArrayInits.Add(new Instruction("", "Const " + i));
-                                                globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-                                            nextFreeMemoryAddress++;
-                                            numOfElements *= i;
-                                        }
-
-                                        nextFreeMemoryAddress += numOfElements;
+                                        initArray(name, (int)type, dimensions);
                                     }
                                     else if (openScopes.Count == 1 || type == TastierType.String) {
                                         currentScope.Push(createSymbol(name, (int)kind, (int)type, 0, nextFreeMemoryAddress));
@@ -1056,34 +1037,7 @@ StructDecl                      (.
 
                                     foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
                                         if (kvp.Value.Item2 == (int)TastierKind.Array) {
-                                            currentScope.Push(createSymbol(name1 + "." + kvp.Key, kvp.Value.Item2,
-                                                                           kvp.Value.Item1, 0, nextFreeMemoryAddress));
-
-                                            if (openScopes.Count > 1) {
-                                                program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-                                            else {
-                                                globalArrayInits.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                                globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-
-                                            nextFreeMemoryAddress++;
-                                            int numOfElements = 1;
-                                            foreach (int i in kvp.Value.Item3) {
-                                                if (openScopes.Count > 1) {
-                                                    program.Add(new Instruction("", "Const " + i));
-                                                    program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                                }
-                                                else {
-                                                    globalArrayInits.Add(new Instruction("", "Const " + i));
-                                                    globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                                }
-                                                nextFreeMemoryAddress++;
-                                                numOfElements *= i;
-                                            }
-
-                                            nextFreeMemoryAddress += numOfElements;
+                                            initArray(name1 + "." + kvp.Key, kvp.Value.Item1, kvp.Value.Item3);
                                         }
                                         else {
                                             currentScope.Push(createSymbol(name1 + "." + kvp.Key, kvp.Value.Item2,
@@ -1100,34 +1054,7 @@ StructDecl                      (.
 
                                     foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
                                         if (kvp.Value.Item2 == (int)TastierKind.Array) {
-                                            currentScope.Push(createSymbol(name1 + "." + kvp.Key, kvp.Value.Item2,
-                                                                           kvp.Value.Item1, 0, nextFreeMemoryAddress));
-
-                                            if (openScopes.Count > 1) {
-                                                program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-                                            else {
-                                                globalArrayInits.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
-                                                globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                            }
-
-                                            nextFreeMemoryAddress++;
-                                            int numOfElements = 1;
-                                            foreach (int i in kvp.Value.Item3) {
-                                                if (openScopes.Count > 1) {
-                                                    program.Add(new Instruction("", "Const " + i));
-                                                    program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                                }
-                                                else {
-                                                    globalArrayInits.Add(new Instruction("", "Const " + i));
-                                                    globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
-                                                }
-                                                nextFreeMemoryAddress++;
-                                                numOfElements *= i;
-                                            }
-
-                                            nextFreeMemoryAddress += numOfElements;
+                                            initArray(name1 + "." + kvp.Key, kvp.Value.Item1, kvp.Value.Item3);
                                         }
                                         else {
                                             currentScope.Push(createSymbol(name1 + "." + kvp.Key, kvp.Value.Item2,
