@@ -1,12 +1,15 @@
 program Test {
-    //int[1][2] arr;
+    int[1][2] arr;
 
     void Main() {
-        /*arr[0][0] := 10;
+        arr[0][0] := 10;
         arr[0][1] := 20;
+
+        int[1][2] arr2;
+        arr2 := arr;
         write arr[0][0], arr[0][1];
 
-        int i;
+        /*int i;
         i := 1;
         switch (i) {
             case 1:
@@ -23,7 +26,7 @@ program Test {
             default: {
                 write 0;
             }
-        }*/
+        }
 
         struct myStruct {
             string field1;
@@ -33,6 +36,6 @@ program Test {
         struct myStruct test;
         test.field1 := "Struct field 1";
         test.field2 := "Struct field 2";
-        write test.field1, test.field2;
+        write test.field1, test.field2;*/
     }
 }

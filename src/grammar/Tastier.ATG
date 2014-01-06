@@ -410,7 +410,7 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                             program.Add(new Instruction("", "LoadArr " + (sym.Item5 + 3) + " " + indexes.Count));
                                         }
                                         else {
-                                            SemErr("expected array index");
+                                            program.Add(new Instruction("", "LoadG " + (sym.Item5 + 3 + n) ));
                                         }
                                     }
                                     else if ((TastierKind)sym.Item2 == TastierKind.Const) {
@@ -582,9 +582,6 @@ Ident<out name>                 (.
                                     if ((TastierKind)sym.Item2 != TastierKind.Var && (TastierKind)sym.Item2 != TastierKind.Array) {
                                         SemErr("cannot assign to non-variable");
                                     }
-                                    else if ((TastierKind)sym.Item2 == TastierKind.Array && !indexed) {
-                                        SemErr("expected index of array");
-                                    }
                                 .)
 Expr<out type>                  (.
                                     if (type != (TastierType)sym.Item3) {
@@ -592,7 +589,7 @@ Expr<out type>                  (.
                                     }
 
                                     if (sym.Item4 == 0) {
-                                        if ((TastierKind)sym.Item2 == TastierKind.Array) {
+                                        if ((TastierKind)sym.Item2 == TastierKind.Array && indexed) {
                                             foreach (int i in indexes) {
                                                 program.Add(new Instruction("", "Const " + i));
                                             }
@@ -914,6 +911,17 @@ VarDecl                         (.
                                     if (kind == TastierKind.Array) {
                                         currentScope.Push(createSymbol(name, (int)TastierKind.Array, (int)type, 0, nextFreeMemoryAddress));
 
+                                        if (openScopes.Count > 1) {
+                                                program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
+                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+                                        }
+                                        else {
+                                            globalArrayInits.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
+                                            globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+                                        }
+
+                                        nextFreeMemoryAddress++;
+
                                         int numOfElements = 1;
                                         foreach (int i in dimensions) {
                                             if (openScopes.Count > 1) {
@@ -941,8 +949,18 @@ VarDecl                         (.
                                 .)
   { ',' Ident<out name>         (.
                                     if (kind == TastierKind.Array) {
-                                        currentScope.Push(new Symbol(name, (int)TastierKind.Array, (int)type, 0, nextFreeMemoryAddress));
+                                        currentScope.Push(createSymbol(name, (int)TastierKind.Array, (int)type, 0, nextFreeMemoryAddress));
 
+                                        if (openScopes.Count > 1) {
+                                                program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
+                                                program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+                                        }
+                                        else {
+                                            globalArrayInits.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
+                                            globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
+                                        }
+
+                                        nextFreeMemoryAddress++;
                                         int numOfElements = 1;
                                         foreach (int i in dimensions) {
                                             if (openScopes.Count > 1) {
