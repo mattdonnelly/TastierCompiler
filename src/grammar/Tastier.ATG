@@ -412,8 +412,7 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                     }
                                 .)
     {
-     '['
-        number                  (.
+        '[' number              (.
                                     if (TastierKind.Array != (TastierKind)sym.Item2) {
                                         SemErr("cannot index into a non-array");
                                     }
@@ -421,7 +420,7 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                     indexes.Add(Convert.ToInt32(t.val));
                                     indexed = true;
                                 .)
-     ']'
+        ']'
     }
                                 (.
                                     type = (TastierType)sym.Item3;
@@ -931,16 +930,15 @@ VarDecl                         (.
                                     string name; TastierType type; TastierKind kind = TastierKind.Var; Scope currentScope = openScopes.Peek();
                                     List<int> dimensions = new List<int>();
                                 .)
-= Type<out type>
-  {
-    '['
-        number                  (.
+=   Type<out type>
+    Ident<out name>
+    {
+        '[' number              (.
                                     dimensions.Add(Convert.ToInt32(t.val));
                                     kind = TastierKind.Array;
                                 .)
-    ']'
-  }
-  Ident<out name>               (.
+        ']'
+    }                           (.
                                     if (kind == TastierKind.Array) {
                                         initArray(name, (int)type, dimensions);
                                     }
@@ -953,7 +951,14 @@ VarDecl                         (.
                                                                        openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
-  { ',' Ident<out name>         (.
+    {   ',' Ident<out name>     (.  kind = TastierKind.Var; .)
+        {
+            '[' number          (.
+                                      dimensions.Add(Convert.ToInt32(t.val));
+                                      kind = TastierKind.Array;
+                                .)
+            ']'
+        }                       (.
                                     if (kind == TastierKind.Array) {
                                         initArray(name, (int)type, dimensions);
                                     }
@@ -966,7 +971,7 @@ VarDecl                         (.
                                                                        openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
-  } ';'
+    } ';'
 | StructDecl.
 
 /*------------------------------------------------------------------------*/
@@ -1001,6 +1006,7 @@ StructDecl                      (.
                                     structs.Add(name, new Dictionary<string, StructVarSymbol>());
                                     kind = TastierKind.Var;
                                 .)
+    Ident<out name1>
     {
         '[' number              (.
                                     kind = TastierKind.Array;
@@ -1008,22 +1014,21 @@ StructDecl                      (.
                                 .)
         ']'
     }
-    Ident<out name1> ';'        (.
+    ';'                         (.
                                     structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, dimensions));
                                     dimensions = new List<int>();
                                 .)
     {
-        Type<out type>          (.
-                                    kind = TastierKind.Var;
-                                .)
+        Type<out type>          (.  kind = TastierKind.Var;  .)
+        Ident<out name1>
         {
-            '[' number              (.
+            '[' number          (.
                                     kind = TastierKind.Array;
                                     dimensions.Add(Convert.ToInt32(t.val));
                                 .)
             ']'
         }
-        Ident<out name1> ';'    (.
+        ';'                     (.
                                     structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, dimensions));
                                     dimensions = new List<int>();
                                 .)

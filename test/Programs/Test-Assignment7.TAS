@@ -1,13 +1,10 @@
 program Test {
-    int[1][2] arr;
+    int arr[1][2];
 
     void Main() {
         arr[0][0] := 10;
         arr[0][1] := 20;
-
-        int[1][2] arr2;
-        arr2 := arr;
-        write arr2[0][0], arr2[0][1];
+        write arr[0][0], arr[0][1];
 
         int i;
         i := 1;
@@ -30,14 +27,14 @@ program Test {
 
         struct myStruct {
             int field1;
-            int[2][3] field2;
+            int field2[2][3];
             string field3;
         };
 
         struct myStruct test;
         test.field1 := 10;
         test.field2[0][0] := 20;
-        test.field3 := "Structs work!";
+        test.field3 := "Structs work";
         write test.field1, test.field2[0][0], test.field3;
     }
 }
