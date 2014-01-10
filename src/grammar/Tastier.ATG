@@ -171,15 +171,32 @@ Dictionary<string, Dictionary<string, StructVarSymbol>> structs = new Dictionary
 
 Program program = new Program();
 Program header = new Program();
-Program globalArrayInits = new Program();
-
 Stack<string> openProcedureDeclarations = new Stack<string>();
 
+/*
+  Used for storing globally declared array initlization instructions to be popped off when
+  we reach the main procedure
+*/
+Program globalArrayInits = new Program();
+
+/*
+  Common function for creating arrays
+*/
 void initArray(string name, int type, List<int> dimensions) {
     Scope currentScope = openScopes.Peek();
 
+    // Create symbol table entry
     currentScope.Push(createSymbol(name, (int)TastierKind.Array, type, 0, nextFreeMemoryAddress));
 
+    /*
+      If we're not inside a procedure, all of the instructions to initialize the array must be
+      pushed to globalArrayInits so they get initialized at the start fo the main procedure
+    */
+
+    /*
+      Create pointer to where array information will actually be stored. By making the value
+      of an array essentially a pointer it means arrays are easily assignable
+    */
     if (openScopes.Count > 1) {
         program.Add(new Instruction("", "Const " + (nextFreeMemoryAddress + 4)));
         program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
@@ -191,6 +208,7 @@ void initArray(string name, int type, List<int> dimensions) {
 
     nextFreeMemoryAddress++;
 
+    // Store each of the dimension sizes in memory
     int numOfElements = 1;
     foreach (int i in dimensions) {
         if (openScopes.Count > 1) {
@@ -202,10 +220,10 @@ void initArray(string name, int type, List<int> dimensions) {
             globalArrayInits.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
         }
         nextFreeMemoryAddress++;
-        numOfElements *= i;
+        numOfElements *= i; // keep track of the number of elements it can store
     }
 
-    nextFreeMemoryAddress += numOfElements;
+    nextFreeMemoryAddress += numOfElements; // free up space for the number of elements
 }
 
 /*
@@ -402,7 +420,7 @@ Expr<out TastierType type>      (.  TastierType type1; Instruction inst; .)
 
 /*------------------------------------------------------------------------*/
 
-Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>(); Symbol sym; string name; bool indexed = false;.)
+Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>(); Symbol sym; string name;.)
 =                               (.  type = TastierType.Undefined; .)
   ( Ident<out name>             (.
                                     sym = lookup(openScopes, name);
@@ -414,11 +432,11 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
     {
         '[' number              (.
                                     if (TastierKind.Array != (TastierKind)sym.Item2) {
-                                        SemErr("cannot index into a non-array");
+                                        SemErr("cannot specify index of non-array");
                                     }
 
+                                    // keep track of array access indexes to initalize array later
                                     indexes.Add(Convert.ToInt32(t.val));
-                                    indexed = true;
                                 .)
         ']'
     }
@@ -426,7 +444,7 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                     type = (TastierType)sym.Item3;
                                     if ((TastierKind)sym.Item2 == TastierKind.Var) {
                                         if (sym.Item4 == 0) {
-                                            program.Add(new Instruction("", "LoadG " + (sym.Item5 + 3 + n) ));
+                                            program.Add(new Instruction("", "LoadG " + (sym.Item5 + 3 + n)));
                                         }
                                         else {
                                             int lexicalLevelDifference = Math.Abs(openScopes.Count - sym.Item4) - 1;
@@ -434,7 +452,8 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                         }
                                     }
                                     else if ((TastierKind)sym.Item2 == TastierKind.Array) {
-                                        if (indexed) {
+                                        if (indexes.Count > 0) {
+                                            // Store array indexes on the stack
                                             foreach (int i in indexes) {
                                                 program.Add(new Instruction("", "Const " + i));
                                             }
@@ -442,7 +461,8 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                             program.Add(new Instruction("", "LoadArr " + (sym.Item5 + 3) + " " + indexes.Count));
                                         }
                                         else {
-                                            program.Add(new Instruction("", "LoadG " + (sym.Item5 + 3 + n) ));
+                                            // Array assignment
+                                            program.Add(new Instruction("", "LoadG " + (sym.Item5 + 3 + n)));
                                         }
                                     }
                                     else if ((TastierKind)sym.Item2 == TastierKind.Const) {
@@ -457,20 +477,25 @@ Factor<out TastierType type>    (.  int n = 0; List<int> indexes = new List<int>
                                     type = TastierType.String;
 
                                     string  str = t.val;
+
+                                    // Remove quotations
                                     str = str.Remove(0,1);
                                     str = str.Remove(str.Length - 1);
 
+                                    // Create point to where string information will actaully be stored
                                     int stringStartAddress = nextFreeMemoryAddress;
                                     program.Add(new Instruction("", "Const " + str.Length));
                                     program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
                                     nextFreeMemoryAddress += 1;
 
+                                    // Store each of the chars in memory (in reverse order)
                                     for (int i = 0; i < str.Length; i++) {
                                         program.Add(new Instruction("", "Const " + Convert.ToInt32(str[str.Length - i - 1])));
                                         program.Add(new Instruction("", "StoG " + (nextFreeMemoryAddress + 3)));
                                         nextFreeMemoryAddress++;
                                     }
 
+                                    // Push value of string pointer to stack to be loaded
                                     program.Add(new Instruction("", "Const " + (stringStartAddress + 3)));
                                 .)
 
@@ -509,7 +534,8 @@ MulOp<out Instruction inst>
 ProcDecl                        (.  string name; string label; Scope currentScope = openScopes.Peek(); int enterInstLocation = 0; .)
 = "void"
   Ident<out name>               (.
-                                    currentScope.Push(createSymbol(name, (int)TastierKind.Proc, (int)TastierType.Undefined, openScopes.Count, -1));
+                                    currentScope.Push(createSymbol(name, (int)TastierKind.Proc,
+                                                                   (int)TastierType.Undefined, openScopes.Count, -1));
                                     openScopes.Push(new Scope());
                                     currentScope = openScopes.Peek();
                                 .)
@@ -532,6 +558,7 @@ ProcDecl                        (.  string name; string label; Scope currentScop
                                       put the right value in.
                                     */
 
+                                    // Pop off global array initilization instructions
                                     if (name == "Main") {
                                         program.AddRange(globalArrayInits);
                                         globalArrayInits.Clear();
@@ -589,7 +616,7 @@ SimExpr<out TastierType type>   (.  TastierType type1; Instruction inst; .)
 
 /*------------------------------------------------------------------------*/
 
-Assignment                      (.  List<int> indexes = new List<int>(); TastierType type; string name; Symbol sym; bool indexed = false; .)
+Assignment                      (.  List<int> indexes = new List<int>(); TastierType type; string name; Symbol sym; .)
 =
 Ident<out name>                 (.
                                     sym = lookup(openScopes, name);
@@ -606,7 +633,6 @@ Ident<out name>                 (.
                                     }
 
                                     indexes.Add(Convert.ToInt32(t.val));
-                                    indexed = true;
                                 .)
    ']'
 }
@@ -621,7 +647,8 @@ Expr<out type>                  (.
                                     }
 
                                     if (sym.Item4 == 0) {
-                                        if ((TastierKind)sym.Item2 == TastierKind.Array && indexed) {
+                                        if ((TastierKind)sym.Item2 == TastierKind.Array && indexes.Count > 0) {
+                                            // push each of the array access indexes to the stack
                                             foreach (int i in indexes) {
                                                 program.Add(new Instruction("", "Const " + i));
                                             }
@@ -644,8 +671,7 @@ Expr<out type>                  (.
                                         SemErr("reference to undefined variable " + name);
                                     }
 
-                                    indexes.Clear();
-                                    indexed = false;
+                                    indexes = new List<int>();
                                 .)
  {
    '['
@@ -655,7 +681,6 @@ Expr<out type>                  (.
                                     }
 
                                     indexes.Add(Convert.ToInt32(t.val));
-                                    indexed = true;
                                 .)
    ']'
 }
@@ -670,7 +695,8 @@ Expr<out type>                  (.
                                     }
 
                                     if (sym.Item4 == 0) {
-                                        if ((TastierKind)sym.Item2 == TastierKind.Array) {
+                                        if ((TastierKind)sym.Item2 == TastierKind.Array  && indexes.Count > 0) {
+                                            // push each of the array access indexes to the stack
                                             foreach (int i in indexes) {
                                                 program.Add(new Instruction("", "Const " + i));
                                             }
@@ -694,15 +720,17 @@ Stat
 =
 Assignment ';'
 
+// if, while, for etc.
 | FlowControlStat
 
+// write / read
 | IOStat ';'
 
 | '{' { Stat | VarDecl } '}' .
 
 /*------------------------------------------------------------------------*/
 
-FlowControlStat                 (.  TastierType type, type2; int conditionStart; List<Instruction> conditionInstructions; .)
+FlowControlStat                 (.  TastierType type, type2; int switchStart; List<Instruction> switchInstructions; .)
 =
 "if"
     '(' Expr<out type> ')'      (.
@@ -727,9 +755,10 @@ FlowControlStat                 (.  TastierType type, type2; int conditionStart;
         Stat
     ]                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
 
-|   "switch"                    (.  conditionStart = program.Count(); .)
+|   "switch"                    (.  switchStart = program.Count(); .)
     '(' Expr<out type> ')' '{'  (.
-                                    conditionInstructions = program.GetRange(conditionStart, program.Count() - conditionStart);
+                                    // need to store the value of the expression in the switch statement to compare with each case
+                                    switchInstructions = program.GetRange(switchStart, program.Count() - switchStart);
 
                                     if (type == TastierType.String) {
                                         SemErr("Cannot use String with switch statement");
@@ -750,7 +779,9 @@ FlowControlStat                 (.  TastierType type, type2; int conditionStart;
                                 .)
         [ Stat ]                 (.
                                     program.Add(new Instruction(openLabels.Pop(), "Nop"));
-                                    program.AddRange(conditionInstructions);
+
+                                    // push the value from the switch statement to compare with the next case
+                                    program.AddRange(switchInstructions);
                                 .)
     }
     [ "default" ':' Stat ]
@@ -776,7 +807,8 @@ FlowControlStat                 (.  TastierType type, type2; int conditionStart;
                                     if ((TastierType)type != TastierType.Boolean) {
                                         SemErr("boolean type expected");
                                     }
-                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek())); // jump to the loop end label if condition is false
+                                    // jump to the loop end label if condition is false
+                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
                                 .)
     Stat                        (.
                                     program.Add(new Instruction("", "Jmp " + loopStartLabel));
@@ -793,7 +825,8 @@ FlowControlStat                 (.  TastierType type, type2; int conditionStart;
                                     if ((TastierType)type != TastierType.Boolean) {
                                         SemErr("boolean type expected");
                                     }
-                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek())); // jump to the loop end label if condition is false
+                                    // jump to the loop end label if condition is false
+                                    program.Add(new Instruction("", "FJmp " + openLabels.Peek()));
 
                                     updateInstructionsStart = program.Count;
                                 .)
@@ -927,7 +960,8 @@ Type<out TastierType type>
 /*------------------------------------------------------------------------*/
 
 VarDecl                         (.
-                                    string name; TastierType type; TastierKind kind = TastierKind.Var; Scope currentScope = openScopes.Peek();
+                                    string name; TastierType type; TastierKind kind = TastierKind.Var;
+                                    Scope currentScope = openScopes.Peek();
                                     List<int> dimensions = new List<int>();
                                 .)
 =   Type<out type>
@@ -947,8 +981,8 @@ VarDecl                         (.
                                         nextFreeMemoryAddress += 1;
                                     }
                                     else {
-                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type,
-                                                                       openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
+                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1,
+                                                                       currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
     {   ',' Ident<out name>     (.  kind = TastierKind.Var; .)
@@ -967,8 +1001,8 @@ VarDecl                         (.
                                         nextFreeMemoryAddress += 1;
                                     }
                                     else {
-                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type,
-                                                                       openScopes.Count-1, currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
+                                        currentScope.Push(createSymbol(name, (int)TastierKind.Var, (int)type, openScopes.Count-1,
+                                                                       currentScope.Count(s => s.Item2 == (int)TastierKind.Var)));
                                     }
                                 .)
     } ';'
@@ -982,27 +1016,34 @@ ConstDecl                       (.  string name; int n; Scope currentScope = ope
   "=" number
                                 (.
                                     n = Convert.ToInt32(t.val);
-                                    currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
+
+                                    // the value of a const is stored in item5 of the symbol
+                                    currentScope.Push(createSymbol(name, (int)TastierKind.Const,
+                                                                   (int)TastierType.Integer, openScopes.Count-1, n));
                                 .)
   { ','
     Ident<out name>
     "=" number
                                 (.
                                     n = Convert.ToInt32(t.val);
-                                    currentScope.Push(createSymbol(name, (int)TastierKind.Const, (int)TastierType.Integer, openScopes.Count-1, n));
+                                    // the value of a const is stored in item5 of the symbol
+                                    currentScope.Push(createSymbol(name, (int)TastierKind.Const,
+                                                                   (int)TastierType.Integer, openScopes.Count-1, n));
                                 .)
   } ';'.
 
 /*------------------------------------------------------------------------*/
 
 StructDecl                      (.
-                                    string name; string name1; TastierType type; TastierKind kind = TastierKind.Var; Scope currentScope = openScopes.Peek();
+                                    string name; string name1; TastierType type; TastierKind kind = TastierKind.Var;
+                                    Scope currentScope = openScopes.Peek();
                                     List <int> dimensions = new List<int>();
                                 .)
 =
 "struct" Ident<out name>
 (
     '{' Type<out type>          (.
+                                    // Add new struct to list of defined ones
                                     structs.Add(name, new Dictionary<string, StructVarSymbol>());
                                     kind = TastierKind.Var;
                                 .)
@@ -1015,6 +1056,7 @@ StructDecl                      (.
         ']'
     }
     ';'                         (.
+                                    // Create StructVarSymbol for field and add it to the struct's dictionary of fields
                                     structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, dimensions));
                                     dimensions = new List<int>();
                                 .)
@@ -1024,11 +1066,14 @@ StructDecl                      (.
         {
             '[' number          (.
                                     kind = TastierKind.Array;
+
+                                    // Keep track of dimension sizes for when creating StructVarSymbol for field
                                     dimensions.Add(Convert.ToInt32(t.val));
                                 .)
             ']'
         }
         ';'                     (.
+                                     // Create StructVarSymbol for field and add it to the struct's dictionary of fields
                                     structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, dimensions));
                                     dimensions = new List<int>();
                                 .)
@@ -1036,12 +1081,16 @@ StructDecl                      (.
     '}'
 
     |   Ident<out name1>        (.
+                                    // Create symbol for struct
                                     currentScope.Push(createSymbol(name1, (int)TastierKind.Struct,
                                                                    structs[name].First().Value.Item1, 0, nextFreeMemoryAddress));
                                     nextFreeMemoryAddress++;
 
+                                    // Create symbol for each struct field too
+                                    // Symbol name for each field is the struct name + '.' + the field name
                                     foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
                                         if (kvp.Value.Item2 == (int)TastierKind.Array) {
+                                            // Need to initialise array
                                             initArray(name1 + "." + kvp.Key, kvp.Value.Item1, kvp.Value.Item3);
                                         }
                                         else {
@@ -1053,12 +1102,16 @@ StructDecl                      (.
                                 .)
     { ','
         Ident<out name1> (.
+                                    // Create symbol for struct
                                     currentScope.Push(createSymbol(name1, (int)TastierKind.Struct,
                                                                    structs[name].First().Value.Item1, 0, nextFreeMemoryAddress));
                                     nextFreeMemoryAddress++;
 
+                                    // Create symbol for each struct field too
+                                    // Symbol name for each field is the struct name + '.' + the field name
                                     foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
                                         if (kvp.Value.Item2 == (int)TastierKind.Array) {
+                                            // Need to initialise array
                                             initArray(name1 + "." + kvp.Key, kvp.Value.Item1, kvp.Value.Item3);
                                         }
                                         else {
