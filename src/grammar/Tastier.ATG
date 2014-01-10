@@ -150,12 +150,12 @@ Stack<Scope> openScopes = new Stack<Scope>();
 int nextFreeMemoryAddress = 0;
 
 /*
-   StructVarSymbol.Item1 -> type
-   StructVarSymbol.Item2 -> kind
-   StructVarSymbol.Item3 -> list of dimension sizes
+   StructFieldSymbol.Item1 -> type
+   StructFieldSymbol.Item2 -> kind
+   StructFieldSymbol.Item3 -> list of dimension sizes
 */
 
-Dictionary<string, Dictionary<string, StructVarSymbol>> structs = new Dictionary<string, Dictionary<string, StructVarSymbol>>();
+Dictionary<string, Dictionary<string, StructFieldSymbol>> structs = new Dictionary<string, Dictionary<string, StructFieldSymbol>>();
 
 /*
   Every time we encounter a new procedure declaration in the program, we want
@@ -753,7 +753,7 @@ FlowControlStat                 (.  TastierType type, type2; int switchStart; Li
                                 .)
     [   "else"
         Stat
-    ]                         (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
+    ]                           (.  program.Add(new Instruction(openLabels.Pop(), "Nop")); .)
 
 |   "switch"                    (.  switchStart = program.Count(); .)
     '(' Expr<out type> ')' '{'  (.
@@ -1044,7 +1044,7 @@ StructDecl                      (.
 (
     '{' Type<out type>          (.
                                     // Add new struct to list of defined ones
-                                    structs.Add(name, new Dictionary<string, StructVarSymbol>());
+                                    structs.Add(name, new Dictionary<string, StructFieldSymbol>());
                                     kind = TastierKind.Var;
                                 .)
     Ident<out name1>
@@ -1056,8 +1056,8 @@ StructDecl                      (.
         ']'
     }
     ';'                         (.
-                                    // Create StructVarSymbol for field and add it to the struct's dictionary of fields
-                                    structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, dimensions));
+                                    // Create StructFieldSymbol for field and add it to the struct's dictionary of fields
+                                    structs[name].Add(name1, new StructFieldSymbol((int)type, (int)kind, dimensions));
                                     dimensions = new List<int>();
                                 .)
     {
@@ -1067,14 +1067,14 @@ StructDecl                      (.
             '[' number          (.
                                     kind = TastierKind.Array;
 
-                                    // Keep track of dimension sizes for when creating StructVarSymbol for field
+                                    // Keep track of dimension sizes for when creating StructFieldSymbol for field
                                     dimensions.Add(Convert.ToInt32(t.val));
                                 .)
             ']'
         }
         ';'                     (.
-                                     // Create StructVarSymbol for field and add it to the struct's dictionary of fields
-                                    structs[name].Add(name1, new StructVarSymbol((int)type, (int)kind, dimensions));
+                                     // Create StructFieldSymbol for field and add it to the struct's dictionary of fields
+                                    structs[name].Add(name1, new StructFieldSymbol((int)type, (int)kind, dimensions));
                                     dimensions = new List<int>();
                                 .)
     }
@@ -1088,7 +1088,7 @@ StructDecl                      (.
 
                                     // Create symbol for each struct field too
                                     // Symbol name for each field is the struct name + '.' + the field name
-                                    foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
+                                    foreach (KeyValuePair<string, StructFieldSymbol> kvp in structs[name]) {
                                         if (kvp.Value.Item2 == (int)TastierKind.Array) {
                                             // Need to initialise array
                                             initArray(name1 + "." + kvp.Key, kvp.Value.Item1, kvp.Value.Item3);
@@ -1109,7 +1109,7 @@ StructDecl                      (.
 
                                     // Create symbol for each struct field too
                                     // Symbol name for each field is the struct name + '.' + the field name
-                                    foreach (KeyValuePair<string, StructVarSymbol> kvp in structs[name]) {
+                                    foreach (KeyValuePair<string, StructFieldSymbol> kvp in structs[name]) {
                                         if (kvp.Value.Item2 == (int)TastierKind.Array) {
                                             // Need to initialise array
                                             initArray(name1 + "." + kvp.Key, kvp.Value.Item1, kvp.Value.Item3);
