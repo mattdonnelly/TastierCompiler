@@ -32,7 +32,7 @@ enum TastierKind : int {  // kinds of symbol
 
 //using Symbol = System.Tuple<string, int, int, int, int>;
 
-/* Symbol Table Priniting */
+/* Symbol Table Printing */
 
 Stack<Symbol> symbolTableSummary = new Stack<Symbol>();
 
